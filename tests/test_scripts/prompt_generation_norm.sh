@@ -1,5 +1,5 @@
 data_name="
-        multi-Synthetic"
+        web_attack"
 save_format="pth.tar"
 
 
