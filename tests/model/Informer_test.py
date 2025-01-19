@@ -28,7 +28,7 @@ def config(tmp_path):
         "dropout": 0.2,
         "fc_dropout": 0.2,
         "head_dropout": 0,
-        "seq_len": 336+133, # Equal to the sequence length + the length of prompt
+        "seq_len": 336,
         "patch_len": 16,
         "stride": 8,
         "des": 'Exp',

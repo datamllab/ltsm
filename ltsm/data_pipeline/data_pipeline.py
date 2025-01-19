@@ -1,11 +1,12 @@
 import numpy as np
 import torch
 import argparse
+import json
 import random
 import ipdb
 
 from ltsm.data_provider.data_factory import get_datasets
-from ltsm.data_provider.data_loader import HF_Dataset
+from ltsm.data_provider.data_loader import HF_Dataset, HF_Timestamp_Dataset
 from ltsm.data_pipeline.model_manager import ModelManager
 
 import logging
@@ -72,11 +73,10 @@ class TrainingPipeline():
         )
 
         train_dataset, eval_dataset, test_datasets, _ = get_datasets(self.args)
-        train_dataset, eval_dataset= HF_Dataset(train_dataset), HF_Dataset(eval_dataset)
-
-        if self.args.model == 'PatchTST' or self.args.model == 'DLinear':
-            # Set the patch number to the size of the input sequence including the prompt sequence
-            self.model_manager.args.seq_len = train_dataset[0]["input_data"].size()[0]
+        if self.args.model == "Informer":
+            train_dataset, eval_dataset = HF_Timestamp_Dataset(train_dataset), HF_Timestamp_Dataset(eval_dataset)
+        else:
+            train_dataset, eval_dataset= HF_Dataset(train_dataset), HF_Dataset(eval_dataset)
         
         model = self.model_manager.create_model()
         
@@ -103,16 +103,24 @@ class TrainingPipeline():
 
         # Testing settings
         for test_dataset in test_datasets:
+            if self.args.model == "Informer":
+                test_ds = HF_Timestamp_Dataset(test_dataset)
+            else:
+                test_ds = HF_Dataset(test_dataset)
+                
             trainer.compute_loss = self.model_manager.compute_loss
             trainer.prediction_step = self.model_manager.prediction_step
             test_dataset = HF_Dataset(test_dataset)
 
-            metrics = trainer.evaluate(test_dataset)
+            metrics = trainer.evaluate(test_ds)
             trainer.log_metrics("Test", metrics)
             trainer.save_metrics("Test", metrics)
 
 def get_args():
     parser = argparse.ArgumentParser(description='LTSM')
+    
+    # Load JSON config file
+    parser.add_argument('--config', type=str, help='Path to JSON configuration file')
 
     # Basic Config
     parser.add_argument('--model_id', type=str, default='test_run', help='model id')
@@ -122,8 +130,9 @@ def get_args():
     parser.add_argument('--checkpoints', type=str, default='./checkpoints/')
 
     # Data Settings
+    parser.add_argument('--data', help='dataset type')
     parser.add_argument('--data_path', nargs='+', default='dataset/weather.csv', help='data files')
-    parser.add_argument('--test_data_path_list', nargs='+', required=True, help='test data file')
+    parser.add_argument('--test_data_path_list', nargs='+', help='test data file')
     parser.add_argument('--prompt_data_path', type=str, default='./weather.csv', help='prompt data file')
     parser.add_argument('--data_processing', type=str, default="standard_scaler", help='data processing method')
     parser.add_argument('--train_ratio', type=float, default=0.7, help='train data ratio')
@@ -153,7 +162,6 @@ def get_args():
     parser.add_argument('--model', type=str, default='model', help='model name, , options:[LTSM, LTSM_WordPrompt, LTSM_Tokenizer, DLinear, PatchTST, Informer]')
     parser.add_argument('--stride', type=int, default=8, help='stride')
     parser.add_argument('--tmax', type=int, default=10, help='tmax')
-    parser.add_argument('--dropout', type=float, default=0.05, help='dropout')
     parser.add_argument('--embed', type=str, default='timeF',
                         help='time features encoding, options:[timeF, fixed, learned]')
     parser.add_argument('--activation', type=str, default='gelu', help='activation')
@@ -199,6 +207,14 @@ def get_args():
     parser.add_argument('--individual', type=int, default=0, help='individual head; True 1 False 0')
     
     args, unknown = parser.parse_known_args()
+
+    if args.config:
+        with open(args.config, 'r') as f:
+            config = json.load(f)
+            json_args = argparse.Namespace(**config)
+
+            for key, value in vars(json_args).items():
+                setattr(args, key, value)
 
     return args
 

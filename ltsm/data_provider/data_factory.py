@@ -7,6 +7,7 @@ from ltsm.data_reader import reader_dict
 from ltsm.data_provider.data_splitter import SplitterByTimestamp
 from ltsm.data_provider.tokenizer import processor_dict
 from ltsm.data_provider.dataset import TSDataset,  TSPromptDataset, TSTokenDataset
+from ltsm.data_provider.data_loader import Dataset_Custom, Dataset_ETT_hour, Dataset_ETT_minute
 
 from typing import Tuple, List, Union, Dict
 import logging
@@ -341,37 +342,61 @@ class DatasetFactory:
         return train_ds, val_ds, test_ds_list
 
 def get_datasets(args): 
-    ds_factory = DatasetFactory(
-        data_paths=args.data_path,
-        prompt_data_path=args.prompt_data_path,
-        data_processing=args.data_processing,
-        seq_len=args.seq_len,
-        pred_len=args.pred_len,
-        train_ratio=args.train_ratio,
-        val_ratio=args.val_ratio,
-        model=args.model,
-        downsample_rate=args.downsample_rate,
-        do_anomaly=args.do_anomaly
-    )
-    train_ds, val_ds, test_ds_list= ds_factory.getDatasets()
+    if "LTSM" in args.model:
+        # Create datasets
+        dataset_factory = DatasetFactory(
+            data_paths=args.data_path,
+            prompt_data_path=args.prompt_data_path,
+            data_processing=args.data_processing,
+            seq_len=args.seq_len,
+            pred_len=args.pred_len,
+            train_ratio=args.train_ratio,
+            val_ratio=args.val_ratio,
+            model=args.model,
+            split_test_sets=False,
+            downsample_rate=args.downsample_rate,
+            do_anomaly=args.do_anomaly
+        )
+        train_dataset, val_dataset, test_datasets = dataset_factory.getDatasets()
+        processor = dataset_factory.processor
+    else:
+        timeenc = 0 if args.embed != 'timeF' else 1
+        Data = Dataset_Custom
+        if args.data == "ETTh1" or args.data == "ETTh2":
+            Data = Dataset_ETT_hour
+        elif args.data == "ETTm1" or args.data == "ETTm2":
+            Data = Dataset_ETT_minute
 
-    return train_ds, val_ds, test_ds_list, ds_factory.processor
+        train_dataset = Data(
+            data_path=args.data_path[0],
+            split='train',
+            size=[args.seq_len, args.pred_len],
+            freq=args.freq,
+            timeenc=timeenc,
+            features=args.features
+        )
+        val_dataset = Data(
+            data_path=args.data_path[0],
+            split='val',
+            size=[args.seq_len, args.pred_len],
+            freq=args.freq,
+            timeenc=timeenc,
+            features=args.features
+        )
+        test_datasets = [Data(
+            data_path=args.data_path[0],
+            split='test',
+            size=[args.seq_len, args.pred_len],
+            freq=args.freq,
+            timeenc=timeenc,
+            features=args.features
+        )]
+        processor = train_dataset.scaler
+
+    return train_dataset, val_dataset, test_datasets, processor
     
 def get_data_loaders(args):
-    # Create datasets
-    dataset_factory = DatasetFactory(
-        data_paths=args.data_path,
-        prompt_data_path=args.prompt_data_path,
-        data_processing=args.data_processing,
-        seq_len=args.seq_len,
-        pred_len=args.pred_len,
-        train_ratio=args.train_ratio,
-        val_ratio=args.val_ratio,
-        model=args.model,
-        split_test_sets=False,
-        do_anomaly=args.do_anomaly
-    )
-    train_dataset, val_dataset, test_datasets = dataset_factory.getDatasets()
+    train_dataset, val_dataset, test_datasets, processor = get_datasets()
     print(f"Data loaded, train size {len(train_dataset)}, val size {len(val_dataset)}")
 
     train_loader = DataLoader(
@@ -396,4 +421,4 @@ def get_data_loaders(args):
         num_workers=0,
     )
 
-    return train_loader, val_loader, test_loader, dataset_factory.processor
+    return train_loader, val_loader, test_loader, processor

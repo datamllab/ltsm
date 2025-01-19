@@ -20,8 +20,8 @@ def config(tmp_path):
         "test_data_path_list": [str(data_path)],
         "prompt_data_path": str(prompt_data_path),
         "enc_in": 1,
-        "seq_len": 336+133, # Equal to the sequence length + the length of prompt
-        "train_epochs": 1000,
+        "seq_len": 336, # Equal to the sequence length + the length of prompt
+        "train_epochs": 100,
         "patience": 10,
         "lradj": 'TST',
         "pct_start": 0.2,
