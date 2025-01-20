@@ -11,7 +11,6 @@ The LTSM-bundle package leverages the HuggingFace transformers toolkit, offering
 ```
 conda create -n ltsm python=3.8.0
 conda activate ltsm
-git clone git@github.com:daochenzha/ltsm.git
 cd ltsm
 pip3 install -e .
 pip3 install -r requirements.txt
