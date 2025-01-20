@@ -34,16 +34,3 @@ Training on **[Time Series Prompt]** and **[Time Series Tokenization]**
 bash scripts/train_ltsm_tokenizer_csv.sh
 ```
 
-## Datasets and Time Series Prompts
-Download the datasets
-```bash
-cd datasets
-download: https://drive.google.com/drive/folders/1hLFbz0FRxdiDCzgFYtKCOPJYSBVvwW9P
-```
-
-Download the time series prompts 
-```bash
-cd prompt_bank/propmt_data_csv
-download: https://drive.google.com/drive/folders/1hLFbz0FRxdiDCzgFYtKCOPJYSBVvwW9P
-```
-
