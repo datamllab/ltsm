@@ -1,4 +1,11 @@
-# Large Time Series Model (LSTM)
+# Understanding Different Design Choices in Training Large Time Series Models
+<img width="700" height="290" src="./imgs/ltsm_model.png">
+
+This work investigates the transition from traditional Time Series Forecasting (TSF) to Large Time Series Models (LTSMs), leveraging universal transformer-based models. Training LTSMs on diverse time series data introduces challenges due to varying frequencies, dimensions, and patterns. We explore various design choices for LTSMs, including pre-processing, model configurations, and dataset setups. We introduce **Time Series Prompt**, a statistical prompting strategy, and $\texttt{LTSM-bundle}$, which encapsulates the most effective design practices identified.
+
+
+## Why LTSM-bundle?
+The LTSM-bundle package leverages the HuggingFace transformers toolkit, offering flexibility to switch between different advanced language models as the backbone. It is easy to tailor the general LTSMs to their specific time series forecasting needs by selecting the most suitable language model from a wide array of options. The flexibility enhances the adaptability of the package across different industries and data types, ensuring optimal performance in diverse scenarios.
 
 ## Installation
 ```
@@ -10,67 +17,33 @@ pip3 install -e .
 pip3 install -r requirements.txt
 ```
 
-## Datasets
-Let's maintain a table of the datasets. We just put datasets in our server for now without uploading to Github.
+## Quick Exploration on LTSM-bundle 
 
-[EEG (3.4GB)](https://www.physionet.org/content/eegmmidb/1.0.0/)
-
-```
-/home/jy101/ltsm/dataset/eeg_csv/
+Training on **[Time Series Prompt]** and **[Linear Tokenization]**
+```bash
+bash scripts/train_ltsm_csv.sh
 ```
 
-Pretrain: [ECG (33GB)](https://physionet.org/content/fecgsyndb/1.0.0/)
-
-```
-/home/jy101/ltsm/dataset/fecgsyndb_csv/
-```
-
-Fine-tune and Testing: [ECG (5GB)](https://physionet.org/content/ecg-arrhythmia/1.0.0/)
-
-```
-/home/jy101/ltsm/dataset/ecg_arrhythmia_csv/
+Training on **[Text Prompt]** and **[Linear Tokenization]**
+```bash
+bash scripts/train_ltsm_textprompt_csv.sh
 ```
 
-## Quick start
-Get some example data (in datalab1 at Rice):
-
-```
-cp -r /home/dz36/ltsm/ltsm/dataset ./
+Training on **[Time Series Prompt]** and **[Time Series Tokenization]**
+```bash
+bash scripts/train_ltsm_tokenizer_csv.sh
 ```
 
-Train model on Weather dataset:
+## Datasets and Time Series Prompts
+Download the datasets
+```bash
+cd datasets
+download: https://drive.google.com/drive/folders/1hLFbz0FRxdiDCzgFYtKCOPJYSBVvwW9P
 ```
-python main.py --model_id test_run
+
+Download the time series prompts 
+```bash
+cd prompt_bank/propmt_data_csv
+download: https://drive.google.com/drive/folders/1hLFbz0FRxdiDCzgFYtKCOPJYSBVvwW9P
 ```
 
-## Roadmap
-
-<img width="800" src="./imgs/overview.png" alt="overview" />
-
-### Stage 1
-
-We train the model on some datasets in the same domain to see whether it could work.
-
-Action items:
-*   Allen: Focus on modeling. Adapt the code to a form that is more suitable for pre-training and testing/fine-tuning on downstream time series. Note: make it flexible to be able to adapt to fine-tuning. If directly transfer does not work, we may need to try fine-tuning.
-*   Guanchu: Focus on efficency. Current task: implement and test data parallel
-*   Jiayi: Focus on data. Collect and process data into a format that can be directly loaded by the data loader. Do manual cleaning or filtering if needed.
-*   Henry: Provide guidance and trouble shooting. Identifdy the potential good data sources, share time series prerpocessing experiences, etc.
-*   Daochen: Design the whole workflow and organize the efforts.
-
-Tentative author order if we submit a paper later:
-Allen*, Guanchu*, Jiayi*, Henry*, Daochen*, [some others], Xia Hu
-
-Note:
-1. \* means equal contribution
-2. The order of first three authors are subject to change based on actual contribution.
-3. Anyone could be removed if not contributing, as suggested by Dr. Hu.
-4. [some others] are reserved for Stage 2 (no *). If Stage 1 works out, it is very likely we need more help, e.g., data.
-
-
-### Stage 2
-Train model with prompts. TBD
-
-
-## Resources
-[Power Time Series Forecasting by Pretrained LM](https://arxiv.org/pdf/2302.11939.pdf)
