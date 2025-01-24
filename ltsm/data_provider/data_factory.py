@@ -110,8 +110,8 @@ class DatasetFactory:
         idx_file_name = idx_file_name.replace("/", "-")
 
         # Certain characters cannot be used in file names
-        idx_file_name = idx_file_name.replace("**", "_")
-        idx_file_name = idx_file_name.replace("%", "_")
+        # idx_file_name = idx_file_name.replace("**", "_")
+        # idx_file_name = idx_file_name.replace("%", "_")
         
         if os.path.split(os.path.dirname(data_name))[-1] == "monash":
             # Monash
