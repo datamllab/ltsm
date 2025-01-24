@@ -277,7 +277,7 @@ class DatasetFactory:
             
 
             # Test Prompt
-            test_prompt_data_path = self.prompt_data_path + '/test'
+            test_prompt_data_path = self.prompt_data_path + '/train'
             sub_test_prompt_data, tmp = self.loadPrompts(data_path, test_prompt_data_path, buff)
             missing.update(set(tmp))
 
