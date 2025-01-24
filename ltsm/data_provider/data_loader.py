@@ -848,3 +848,11 @@ class Dataset_Custom_List_TS_TSF(Dataset):
 
     def inverse_transform(self, data):
         return self.scaler.inverse_transform(data)
+        
+def get_weighted_sampling_data_loader(dataset, batchsize, weights, withreplacement):
+
+    sampler = WeightedRandomSampler(weights, num_samples=len(weights), replacement=withreplacement) #withreplacement is a boolean variable and will be true if replacement is true else false
+
+    dataloader = DataLoader(dataset, batch_size=batchsize, sampler=sampler)
+
+    return dataloader
