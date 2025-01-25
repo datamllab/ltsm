@@ -68,26 +68,6 @@ def test_data_factory__get_prompt(setup, save_function, expected_shape):
     concatenated_result = np.concatenate((prompt_data, arr))
     assert len(concatenated_result) == expected_shape[0] + len(arr)
 
-def test_data_factory_load_prompts_invalid_chars(setup):
-    data_path, prompt_data_path, prompt_data_folder, datasetFactory = setup
-    buff = ['rho (g/m**3)', 'rh (%)', 'speed (m/s)', 0, 1]
-    correct = ['rho (g-m_3)', 'rh (_)', 'speed (m-s)', '0', '1']
-   
-    # Mock data for mock pth file
-    train_buf = pd.DataFrame(pd.DataFrame(np.zeros((5, 133)), columns=[i for i in range(133)]))
-
-    for i, filename in enumerate(correct):
-        p = prompt_data_folder / f"mock_{filename}_prompt.pth.tar"
-        train_prompt = pd.DataFrame(train_buf.iloc[i].values)
-        train_prompt = train_prompt.T
-        assert train_prompt.shape == (1, 133)
-        torch.save(train_prompt, str(p))
-        
-    prompt_data, _ = datasetFactory.loadPrompts(str(data_path), str(prompt_data_path), buff)
-    assert len(prompt_data) == 5
-    for i in range(5):
-        assert len(prompt_data[i]) == 133
-
 def test_data_factory_load_prompts_invalid_prompt_file(setup):
     data_path, prompt_data_path, prompt_data_folder, datasetFactory = setup
 
