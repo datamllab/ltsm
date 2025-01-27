@@ -1,7 +1,6 @@
 import unittest
 import pandas as pd
 from io import StringIO
-from test_script import transform_data  # Assume that the transformation function being tested is named transform_data
 
 class TestDataTransformation(unittest.TestCase):
 

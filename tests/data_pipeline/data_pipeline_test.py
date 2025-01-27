@@ -12,6 +12,7 @@ import argparse
 def mock_args():
     #Fixture for creating mock arguments
     arg_dict = {
+        'model': 'LTSM',
         'data_path':'./datasets',
         'prompt_data_path':'./prompt_bank',
         'output_dir': './output',

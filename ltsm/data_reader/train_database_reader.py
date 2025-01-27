@@ -149,13 +149,11 @@ if __name__ == "__main__":
             csv_files = [os.path.join(datapath, f) for f in os.listdir(datapath) if f.endswith('.csv')]
             tables = [os.path.splitext(os.path.basename(csv_file))[0] for csv_file in csv_files]
             for csv_file, table_name in zip(csv_files, tables):
-                table_name=f'train_{table_name}'
                 insert_data_from_csv(conn, database, csv_file, table_name)
             if not os.path.exists(output_folder):
                 os.makedirs(output_folder)
             for table_name in tables:
                 output_file = os.path.join(output_folder, f"{table_name}.csv")
-                table_name=f'train_{table_name}'
                 retrieve_data_to_csv(conn, database, table_name, output_file)
 
         finally:

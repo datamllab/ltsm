@@ -31,13 +31,41 @@ class HF_Dataset(Dataset):
     def add_data(self, df):
         return self.dataset.add_data(df)
 
-    def __getitem__(self, index):
-
-        seq_x, seq_y = self.dataset.__getitem__(index)
+    def __getitem__(self, index): 
+        outputs = self.dataset.__getitem__(index)
+        seq_x = outputs[0]
+        seq_y = outputs[1]
 
         return {
             "input_data": seq_x,
             "labels": seq_y
+        }
+    
+class HF_Timestamp_Dataset(Dataset):
+    def __init__(self, dataset):
+        super().__init__()
+        self.dataset = dataset
+
+    def __read_data__(self):
+        return self.dataset.__read_data__()
+
+    def __len__(self):
+        return self.dataset.__len__()
+
+    def inverse_transform(self, data):
+        return self.dataset.inverse_transform(data)
+
+    def add_data(self, df):
+        return self.dataset.add_data(df)
+
+    def __getitem__(self, index): 
+        seq_x, seq_y, seq_x_mark, seq_y_mark = self.dataset.__getitem__(index)
+
+        return {
+            "input_data": seq_x,
+            "labels": seq_y,
+            "timestamp_input": seq_x_mark,
+            "timestamp_labels": seq_y_mark
         }
 
 class Dataset_ETT_hour(Dataset):
@@ -131,8 +159,13 @@ class Dataset_ETT_hour(Dataset):
         s_end = s_begin + self.seq_len
         r_begin = s_end
         r_end = r_begin + self.pred_len
-        seq_x = self.data_x[s_begin:s_end, feat_id:feat_id+1]
-        seq_y = self.data_y[r_begin:r_end, feat_id:feat_id+1]
+        if self.enc_in > 1:
+            seq_x = self.data_x[s_begin:s_end]
+            seq_y = self.data_y[r_begin:r_end]
+        else:
+            seq_x = self.data_x[s_begin:s_end, feat_id:feat_id+1]
+            seq_y = self.data_y[r_begin:r_end, feat_id:feat_id+1]
+            
         seq_x_mark = self.data_stamp[s_begin:s_end]
         seq_y_mark = self.data_stamp[r_begin:r_end]
 
@@ -233,8 +266,13 @@ class Dataset_ETT_minute(Dataset):
         s_end = s_begin + self.seq_len
         r_begin = s_end
         r_end = r_begin + self.pred_len
-        seq_x = self.data_x[s_begin:s_end, feat_id:feat_id+1]
-        seq_y = self.data_y[r_begin:r_end, feat_id:feat_id+1]
+        if self.enc_in > 1:
+            seq_x = self.data_x[s_begin:s_end]
+            seq_y = self.data_y[r_begin:r_end]
+        else:
+            seq_x = self.data_x[s_begin:s_end, feat_id:feat_id+1]
+            seq_y = self.data_y[r_begin:r_end, feat_id:feat_id+1]
+            
         seq_x_mark = self.data_stamp[s_begin:s_end]
         seq_y_mark = self.data_stamp[r_begin:r_end]
 
@@ -345,8 +383,14 @@ class Dataset_Custom(Dataset):
         s_end = s_begin + self.seq_len
         r_begin = s_end
         r_end = r_begin + self.pred_len
-        seq_x = self.data_x[s_begin:s_end, feat_id:feat_id+1]
-        seq_y = self.data_y[r_begin:r_end, feat_id:feat_id+1]
+
+        if self.enc_in > 1:
+            seq_x = self.data_x[s_begin:s_end]
+            seq_y = self.data_y[r_begin:r_end]
+        else:
+            seq_x = self.data_x[s_begin:s_end, feat_id:feat_id+1]
+            seq_y = self.data_y[r_begin:r_end, feat_id:feat_id+1]
+
         seq_x_mark = self.data_stamp[s_begin:s_end]
         seq_y_mark = self.data_stamp[r_begin:r_end]
 

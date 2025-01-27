@@ -126,7 +126,12 @@ class ModelManager:
         Returns:
             torch.Tensor or tuple: The computed loss, and optionally the outputs.
         """
-        outputs = model(inputs["input_data"])
+        if self.args.model == 'Informer':
+            input_data_mark = inputs["timestamp_input"].to(model.module.device)
+            label_mark = inputs["timestamp_labels"].to(model.module.device)
+            outputs = model(inputs["input_data"], input_data_mark, inputs["labels"], label_mark)
+        else:
+            outputs = model(inputs["input_data"])
         loss = nn.functional.mse_loss(outputs, inputs["labels"])
         return (loss, outputs) if return_outputs else loss
     
@@ -146,7 +151,12 @@ class ModelManager:
         """
         input_data = inputs["input_data"].to(model.module.device)
         labels = inputs["labels"].to(model.module.device)
-        outputs = model(input_data)
+        if self.args.model == 'Informer':
+            input_data_mark = inputs["timestamp_input"].to(model.module.device)
+            label_mark = inputs["timestamp_labels"].to(model.module.device)
+            outputs = model(input_data, input_data_mark, labels, label_mark)
+        else:
+            outputs = model(input_data)
         loss = nn.functional.mse_loss(outputs, labels)
         return (loss, outputs, labels)
     
@@ -160,6 +170,14 @@ class ModelManager:
         Returns:
             dict: Collated batch with 'input_data' and 'labels' tensors.
         """
+        if self.args.model == 'Informer':
+            return {
+                'input_data': torch.from_numpy(np.stack([x['input_data'] for x in batch])).type(torch.float32),
+                'labels': torch.from_numpy(np.stack([x['labels'] for x in batch])).type(torch.float32),
+                'timestamp_input': torch.from_numpy(np.stack([x['timestamp_input'] for x in batch])).type(torch.float32),
+                'timestamp_labels': torch.from_numpy(np.stack([x['timestamp_labels'] for x in batch])).type(torch.float32)
+            }
+
         return {
             'input_data': torch.from_numpy(np.stack([x['input_data'] for x in batch])).type(torch.float32),
             'labels': torch.from_numpy(np.stack([x['labels'] for x in batch])).type(torch.float32),

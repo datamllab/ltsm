@@ -1,6 +1,8 @@
 # Understanding Different Design Choices in Training Large Time Series Models
 <img width="700" height="290" src="./imgs/ltsm_model.png">
 
+[![Test](https://github.com/daochenzha/ltsm/actions/workflows/test.yml/badge.svg)](https://github.com/daochenzha/ltsm/actions/workflows/test.yml)
+
 This work investigates the transition from traditional Time Series Forecasting (TSF) to Large Time Series Models (LTSMs), leveraging universal transformer-based models. Training LTSMs on diverse time series data introduces challenges due to varying frequencies, dimensions, and patterns. We explore various design choices for LTSMs, including pre-processing, model configurations, and dataset setups. We introduce **Time Series Prompt**, a statistical prompting strategy, and $\texttt{LTSM-bundle}$, which encapsulates the most effective design practices identified. $\texttt{LTSM-bundle}$ is developed by [Data Lab at Rice University](https://cs.rice.edu/~xh37/).
 
 ## Resources

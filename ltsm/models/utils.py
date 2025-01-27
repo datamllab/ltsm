@@ -133,14 +133,21 @@ def get_model(config):
     elif config.model == 'LTSM_Tokenizer':
         from .ltsm_ts_tokenizer import LTSM_Tokenizer
         model = LTSM_Tokenizer(config)
-    else:
+    elif config.model == 'LTSM':
         from .ltsm_stat_model import LTSM
         if config.local_pretrain == "None":
             model = LTSM(config)
         else:
             model_config = PretrainedConfig.from_pretrained(config.local_pretrain)
             model = LTSM.from_pretrained(config.local_pretrain, model_config)
-
+    elif config.model == 'PatchTST':
+        from .PatchTST import PatchTST
+        model = PatchTST(config)
+    elif config.model == 'DLinear':
+        from .DLinear import DLinear
+        model = DLinear(config)
+    elif config.model == 'Informer':
+        from .Informer import Informer
+        model = Informer(config)
 
     return model
-
