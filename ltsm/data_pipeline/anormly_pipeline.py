@@ -23,7 +23,8 @@ from sklearn.metrics import precision_score, recall_score, f1_score
 import logging
 from transformers import (
     Trainer,
-    TrainingArguments
+    TrainingArguments,
+    TrainerCallback,
 )
 
 logging.basicConfig(
@@ -51,6 +52,7 @@ class AnomalyModelManager(ModelManager):
         loss = nn.functional.cross_entropy(outputs, labels)
         #loss = nn.functional.cross_entropy(outputs.reshape(B*L,-1), inputs["labels"][:,1:].long().reshape(B*L))
         return (loss, outputs) if return_outputs else loss
+    
     def compute_metrics(self, p):
         preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
         print(preds.shape, p.label_ids.shape)
@@ -67,6 +69,27 @@ class AnomalyModelManager(ModelManager):
                 "recall": recall_score(label_ids, preds_class, average="micro"),
                 "f1": f1_score(label_ids, preds_class, average="micro")              
         }
+    
+
+class CustomTrainer(Trainer):
+    """
+    Custom Trainer class that extends the Trainer class from the Transformers library.
+    This class is used to add custom logging to the Trainer.
+    """
+    def training_step(self, model, inputs):
+        # this func is used to get more information during training
+        # here is used to check the existence of label 1 in the batch
+        labels = inputs["labels"]
+        has_label_one = (labels == 1.).any().item() if labels is not None else False
+        self.current_label_check = has_label_one
+        
+        return super().training_step(model, inputs)
+    
+    def log(self, logs):
+        # this func add the custom log to Trainer
+        if hasattr(self, "current_label_check"):
+            logs["has_label_one"] = self.current_label_check
+        super().log(logs)
 
 class AnomalyTrainingPipeline():
     """
@@ -113,7 +136,7 @@ class AnomalyTrainingPipeline():
             fp16=False,
             save_steps=100,
             eval_steps=25,
-            logging_steps=5,
+            logging_steps=1,
             learning_rate=self.args.learning_rate,
             gradient_accumulation_steps=self.args.gradient_accumulation_steps,
             save_total_limit=10,
@@ -125,7 +148,7 @@ class AnomalyTrainingPipeline():
         train_dataset, eval_dataset, test_datasets, _ = get_datasets(self.args)
         train_dataset, eval_dataset= HF_Dataset(train_dataset), HF_Dataset(eval_dataset)
         
-        trainer = Trainer(
+        trainer = CustomTrainer(
             model=model,
             args=training_args,
             data_collator=self.model_manager.collate_fn,
@@ -139,7 +162,7 @@ class AnomalyTrainingPipeline():
         # Overload the trainer API
         if not self.args.eval:
             trainer.compute_loss = self.model_manager.compute_loss
-            trainer.prediction_step = self.model_manager.prediction_step        
+            trainer.prediction_step = self.model_manager.prediction_step    
             train_results = trainer.train()
             trainer.save_model()
             trainer.log_metrics("train", train_results.metrics)

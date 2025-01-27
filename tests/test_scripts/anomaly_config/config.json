@@ -9,7 +9,7 @@
     "prompt_data_path": "../../prompt_bank/stat-prompt/prompt_data_normalize_split",
     "data_processing": "standard_scaler",
     "learning_rate": 2e-5,
-    "batch_size": 100,
+    "batch_size": 8,
     "num_workers": 10,
     "train_epochs": 4, 
     "train_ratio": 0.7,
@@ -20,7 +20,7 @@
     "prompt_len": 133,
     "lora": false,
     "lora_dim": 128,
-    "gpt_layers": 3,
+    "gpt_layers": 1,
     "d_model": 1024,
     "n_heads": 16,
     "d_ff": 512,
@@ -36,12 +36,12 @@
     "tmax": 10,
     "eval": 0,
     "itr": 1,
-    "output_dir_template": "output/ltsm_lr{learning_rate}_loraFalse_down{downsample_rate}_freeze{freeze}_e{train_epochs}_pred{pred_len}_113",
+    "output_dir_template": "output/ltsm_lr{learning_rate}_loraFalse_down{downsample_rate}_freeze{freeze}_e{train_epochs}_pred{pred_len}_113_check_bsize=8_grad_accumulate=16_layer=1",
     "downsample_rate": 20,
     "llm_layers": 32,
     "decay_fac": 0.75,
     "lradj": "type1",
     "patience": 3,
-    "gradient_accumulation_steps": 64
+    "gradient_accumulation_steps": 16
   }
   
