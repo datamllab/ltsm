@@ -47,8 +47,8 @@ def test_initialization(pipeline, mock_args):
 def test_run_training(mocker, pipeline):
     # Mock dataset loading and Trainer behavior
     mocker.patch.object(pipeline.model_manager, 'create_model', return_value=(None))
-    mock_get_datasets = mocker.patch('ltsm.data_pipeline.data_pipeline.get_datasets', return_value=(TSDataset([], 0, 0), TSDataset([], 0, 0), [None, None, None, None], None))
-    mock_trainer = mocker.patch('ltsm.data_pipeline.data_pipeline.Trainer')
+    mock_get_datasets = mocker.patch('ltsm.data_pipeline.training_pipeline.get_datasets', return_value=(TSDataset([], 0, 0), TSDataset([], 0, 0), [None, None, None, None], None))
+    mock_trainer = mocker.patch('ltsm.data_pipeline.training_pipeline.Trainer')
     mock_trainer.evaluate.return_value = None
     
     pipeline.run()
@@ -71,8 +71,8 @@ def test_run_evaluation_only(mocker, pipeline):
     pipeline.args.eval = True  # Set eval-only mode
     # Mock dataset loading and Trainer behavior
     mocker.patch.object(pipeline.model_manager, 'create_model', return_value=(None))
-    mock_get_datasets = mocker.patch('ltsm.data_pipeline.data_pipeline.get_datasets', return_value=(TSDataset([], 0, 0), TSDataset([], 0, 0), [None, None, None, None], None))
-    mock_trainer = mocker.patch('ltsm.data_pipeline.data_pipeline.Trainer')
+    mock_get_datasets = mocker.patch('ltsm.data_pipeline.training_pipeline.get_datasets', return_value=(TSDataset([], 0, 0), TSDataset([], 0, 0), [None, None, None, None], None))
+    mock_trainer = mocker.patch('ltsm.data_pipeline.training_pipeline.Trainer')
    
     pipeline.run()
 
