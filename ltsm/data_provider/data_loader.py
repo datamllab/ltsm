@@ -12,17 +12,40 @@ from torch.utils.data.dataset import ConcatDataset, Dataset
 from ltsm.utils.timefeatures import time_features
 from ltsm.utils.tools import convert_tsf_to_dataframe
 
+from typing import Dict
+
 warnings.filterwarnings('ignore')
 
 class HF_Dataset(Dataset):
+    """
+    Custom dataset class that wraps a PyTorch 'Dataset' class to extract the input and output sequences.
+
+    Attributes:
+        dataset (Dataset): The underlying Dataset object.
+    """
     def __init__(self, dataset):
+        """
+        Initializes the HF_Dataset with the underlying dataset.
+
+        Args:
+            dataset (Dataset): The underlying Dataset object.
+        """
         super().__init__()
         self.dataset = dataset
 
     def __read_data__(self):
+        """
+        Read 
+        """
         return self.dataset.__read_data__()
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """
+        Returns the total number of samples in the dataset.
+
+        Returns:
+            int: The number of samples in the dataset.
+        """
         return self.dataset.__len__()
 
     def inverse_transform(self, data):
@@ -31,7 +54,16 @@ class HF_Dataset(Dataset):
     def add_data(self, df):
         return self.dataset.add_data(df)
 
-    def __getitem__(self, index): 
+    def __getitem__(self, index: int) -> Dict[str, torch.Tensor]: 
+        """
+        Retrieves a single input sequence and label from the dataset.
+
+        Args:
+            index (int): Index of data point.
+
+        Returns:
+            Dict[str, torch.Tensor]: Dictionary containing the input data and labels as torch Tensors objects.
+        """
         outputs = self.dataset.__getitem__(index)
         seq_x = outputs[0]
         seq_y = outputs[1]

@@ -123,3 +123,27 @@ class ReprogrammingLayer(nn.Module):
         reprogramming_embedding = torch.einsum("bhls,she->blhe", A, value_embedding)
 
         return reprogramming_embedding
+    
+def freeze_parameters(model: PreTrainedModel):
+    """
+    Sets certain model parameters to non-trainable, and specific parameters to trainable, based on predefined
+    lists of layer names to freeze or keep trainable.
+    """
+    freeze_param_buf = ["gpt2"]
+    for n, p in model.named_parameters():
+        if any(fp in n for fp in freeze_param_buf):
+            p.requires_grad = False
+            print(f"{n} has been freeezed")
+
+    trainable_param_buf = ["ln", "wpe", "in_layer", "out_layer", "lora"]
+    for n, p in model.named_parameters():
+        if any(fp in n for fp in trainable_param_buf):
+            p.requires_grad = True
+
+def print_trainable_parameters(model):
+    """
+    Prints the names of parameters in the model that are trainable.
+    """
+    for n, p in model.named_parameters():
+        if p.requires_grad:
+            print(f"{n} is trainable...")

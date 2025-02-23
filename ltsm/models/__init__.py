@@ -35,14 +35,13 @@ def get_model(config: PretrainedConfig) -> PreTrainedModel:
     Factory method to create a model by name.
     
     Args:
-        model_name (str): The name of the model to create.
         config (PreTrainedConfig): The configuration for the model.
     
     Returns:
         torch.nn.Module: Instantiated model.
     
     Raises:
-        ValueError: If the model_name is not found in model_dict.
+        ValueError: If the model name is not found in model_dict.
     """
     model_name = config.model
     if model_name not in model_dict:
