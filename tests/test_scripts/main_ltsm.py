@@ -24,7 +24,7 @@ if __name__ == "__main__":
                 'timestamp_labels': torch.from_numpy(np.stack([x['timestamp_labels'] for x in batch])).type(torch.float32)
             }
         
-        def prediction_step(model, inputs):
+        def prediction_step(model, inputs, prediction_loss_only=False, ignore_keys=None):
             labels = inputs["labels"].to(model.module.device)
             input_data_mark = inputs["timestamp_input"].to(model.module.device)
             label_mark = inputs["timestamp_labels"].to(model.module.device)

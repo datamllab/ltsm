@@ -14,61 +14,56 @@ import ipdb
 from torch import nn
 import json
 
-from ltsm.data_provider.data_factory import get_datasets
 from ltsm.data_provider.data_loader import HF_Dataset
-from ltsm.data_pipeline.model_manager import ModelManager
+from ltsm.common.base_training_pipeline import BaseTrainingPipeline
+from ltsm.models import LTSMConfig
 
 from sklearn.metrics import precision_score, recall_score, f1_score
 
-import logging
 from transformers import (
     Trainer,
     TrainingArguments
 )
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-)
 
-class AnomalyModelManager(ModelManager):
-    def compute_loss(self, model, inputs, return_outputs=False):
-        """
-        Computes the loss for model training.
+def compute_loss(model, inputs, return_outputs=False):
+    """
+    Computes the loss for model training.
 
-        Args:
-            model (torch.nn.Module): The model used for predictions.
-            inputs (dict): Input data and labels.
-            return_outputs (bool): If True, returns both loss and model outputs.
+    Args:
+        model (torch.nn.Module): The model used for predictions.
+        inputs (dict): Input data and labels.
+        return_outputs (bool): If True, returns both loss and model outputs.
 
-        Returns:
-            torch.Tensor or tuple: The computed loss, and optionally the outputs.
-        """
-        outputs = model(inputs["input_data"]) # output should be B, L, M
-        labels = inputs["labels"]
-        #print(outputs.shape, labels.shape)
-        #B, L, M, _ = outputs.shape
-        loss = nn.functional.cross_entropy(outputs, labels)
-        #loss = nn.functional.cross_entropy(outputs.reshape(B*L,-1), inputs["labels"][:,1:].long().reshape(B*L))
-        return (loss, outputs) if return_outputs else loss
-    def compute_metrics(self, p):
-        preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
-        print(preds.shape, p.label_ids.shape)
-        preds = np.squeeze(preds)
-        if preds.shape != p.label_ids.shape:
-            label_ids = np.squeeze(p.label_ids)
-        else:
-            label_ids = p.label_ids
-        print(preds.shape, label_ids.shape)
-        preds_class = (preds > 0.5).astype(int)
-        
-        return {
-                "precision": precision_score(label_ids, preds_class, average="micro"),
-                "recall": recall_score(label_ids, preds_class, average="micro"),
-                "f1": f1_score(label_ids, preds_class, average="micro")              
-        }
+    Returns:
+        torch.Tensor or tuple: The computed loss, and optionally the outputs.
+    """
+    outputs = model(inputs["input_data"]) # output should be B, L, M
+    labels = inputs["labels"]
+    #print(outputs.shape, labels.shape)
+    #B, L, M, _ = outputs.shape
+    loss = nn.functional.cross_entropy(outputs, labels)
+    #loss = nn.functional.cross_entropy(outputs.reshape(B*L,-1), inputs["labels"][:,1:].long().reshape(B*L))
+    return (loss, outputs) if return_outputs else loss
 
-class AnomalyTrainingPipeline():
+def compute_metrics(p):
+    preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
+    print(preds.shape, p.label_ids.shape)
+    preds = np.squeeze(preds)
+    if preds.shape != p.label_ids.shape:
+        label_ids = np.squeeze(p.label_ids)
+    else:
+        label_ids = p.label_ids
+    print(preds.shape, label_ids.shape)
+    preds_class = (preds > 0.5).astype(int)
+    
+    return {
+            "precision": precision_score(label_ids, preds_class, average="micro"),
+            "recall": recall_score(label_ids, preds_class, average="micro"),
+            "f1": f1_score(label_ids, preds_class, average="micro")              
+    }
+
+class AnomalyTrainingPipeline(BaseTrainingPipeline):
     """
     A pipeline for managing the training and evaluation process of a machine learning model.
 
@@ -76,7 +71,7 @@ class AnomalyTrainingPipeline():
         args (argparse.Namespace): Arguments containing training configuration and hyperparameters.
         model_manager (ModelManager): An instance responsible for creating, managing, and optimizing the model.
     """
-    def __init__(self, args: argparse.Namespace):
+    def __init__(self, config: LTSMConfig, **kwargs):
         """
         Initializes the TrainingPipeline with given arguments and a model manager.
 
@@ -84,8 +79,26 @@ class AnomalyTrainingPipeline():
             args (argparse.Namespace): Contains training settings such as output directory, batch size,
                                        learning rate, and other hyperparameters.
         """
-        self.args = args
-        self.model_manager = AnomalyModelManager(args)
+        super().__init__(config, compute_loss=compute_loss, compute_metrics=compute_metrics, **kwargs)
+        # Training settings
+        self.training_args = TrainingArguments(
+            output_dir=self.config.output_dir,
+            per_device_train_batch_size=config.batch_size,
+            per_device_eval_batch_size=config.batch_size,
+            evaluation_strategy="steps",
+            num_train_epochs=config.train_epochs,
+            fp16=False,
+            save_steps=100,
+            eval_steps=25,
+            logging_steps=5,
+            learning_rate=config.learning_rate,
+            gradient_accumulation_steps=config.gradient_accumulation_steps,
+            save_total_limit=10,
+            remove_unused_columns=False,
+            push_to_hub=False,
+            load_best_model_at_end=True,
+        )
+        
 
     def run(self):
         """
@@ -99,47 +112,25 @@ class AnomalyTrainingPipeline():
             - Training the model and saving metrics and state.
             - Evaluating the model on test datasets and logging metrics.
         """
-        logging.info(self.args)
-    
-        model = self.model_manager.create_model()
-        
-        # Training settings
-        training_args = TrainingArguments(
-            output_dir=self.args.output_dir,
-            per_device_train_batch_size=self.args.batch_size,
-            per_device_eval_batch_size=self.args.batch_size,
-            evaluation_strategy="steps",
-            num_train_epochs=self.args.train_epochs,
-            fp16=False,
-            save_steps=100,
-            eval_steps=25,
-            logging_steps=5,
-            learning_rate=self.args.learning_rate,
-            gradient_accumulation_steps=self.args.gradient_accumulation_steps,
-            save_total_limit=10,
-            remove_unused_columns=False,
-            push_to_hub=False,
-            load_best_model_at_end=True,
-        )
-
-        train_dataset, eval_dataset, test_datasets, _ = get_datasets(self.args)
+        self.log_info(self.config.to_dict())
+        train_dataset, eval_dataset, test_datasets, _ = self.get_datasets()
         train_dataset, eval_dataset= HF_Dataset(train_dataset), HF_Dataset(eval_dataset)
         
         trainer = Trainer(
-            model=model,
-            args=training_args,
-            data_collator=self.model_manager.collate_fn,
-            compute_metrics=self.model_manager.compute_metrics,
+            model=self.model,
+            args=self.training_args,
+            data_collator=self.collate_fn,
+            compute_metrics=self.compute_metrics,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             tokenizer=None,
-            optimizers=(self.model_manager.optimizer, self.model_manager.scheduler),
+            optimizers=(self.optimizer, self.scheduler),
         )
 
         # Overload the trainer API
         if not self.args.eval:
-            trainer.compute_loss = self.model_manager.compute_loss
-            trainer.prediction_step = self.model_manager.prediction_step        
+            trainer.compute_loss = self.compute_loss
+            trainer.prediction_step = self.prediction_step        
             train_results = trainer.train()
             trainer.save_model()
             trainer.log_metrics("train", train_results.metrics)
@@ -148,8 +139,8 @@ class AnomalyTrainingPipeline():
 
         # Testing settings
         for test_dataset in test_datasets:
-            trainer.compute_loss = self.model_manager.compute_loss
-            trainer.prediction_step = self.model_manager.prediction_step
+            trainer.compute_loss = self.compute_loss
+            trainer.prediction_step = self.prediction_step
             test_dataset = HF_Dataset(test_dataset)
 
             metrics = trainer.evaluate(test_dataset)
@@ -169,7 +160,7 @@ def anomaly_get_args():
     args = argparse.Namespace(**config_dict)
 
     if args.pred_len is None:
-        logging.info(f"Anomaly Mode, Set pred_len to seq_len")
+        # self.log_info(f"Anomaly Mode, Set pred_len to seq_len")
         args.pred_len = args.seq_len
     
     if 'output_dir_template' in config_dict:
@@ -180,7 +171,7 @@ def anomaly_get_args():
             train_epochs=args.train_epochs,
             pred_len=args.pred_len
         )
-    logging.info(f"Output Dir: {args.output_dir}")
+    # self.log_info(f"Output Dir: {args.output_dir}")
 
     return args
 
