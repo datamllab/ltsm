@@ -201,7 +201,7 @@ def get_args() -> LTSMConfig:
     args, unknown = parser.parse_known_args()
     config = LTSMConfig.from_dict(vars(args))
 
-    if args.config:
+    if hasattr(args, "config") and args.config:
         config.load(args.config)
 
     return config

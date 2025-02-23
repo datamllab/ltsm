@@ -14,6 +14,7 @@ import sys
 class BaseTrainingPipeline:
     def __init__(self, 
                  config: LTSMConfig, 
+                 model=None,
                  optimizer=None,
                  scheduler=None,
                  collate_fn=None, 
@@ -29,7 +30,9 @@ class BaseTrainingPipeline:
         """
         self.config = config
 
-        self.model = get_model(config)
+        if not model:
+            self.model = get_model(config)
+
         if self.config.lora:
             peft_config = LoraConfig(
                 target_modules=["c_attn"],
@@ -136,7 +139,7 @@ class BaseTrainingPipeline:
         if "LTSM" in self.config.model:
             # Create datasets
             dataset_factory = DatasetFactory(
-                data_paths=[self.config.data_path],
+                data_paths=self.config.data_path,
                 prompt_data_path=self.config.prompt_data_path,
                 data_processing=self.config.data_processing,
                 seq_len=self.config.seq_len,

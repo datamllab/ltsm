@@ -15,6 +15,7 @@ do
   CUDA_VISIBLE_DEVICES=0,1,2,3 python3 main_ltsm.py \
   --config "ltsm.json" \
   --data_path ${data_paths} \
+  --test_data_path_list ${data_paths} \
   --pred_len ${pred_len[$index]} \
   --output_dir output/ltsm_lr1e-3_loraFalse_down20_freeze0_e2_pred${pred_len[$index]}/,
 done

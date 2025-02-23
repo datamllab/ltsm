@@ -1,12 +1,12 @@
 nohup bash -c '
 TRAIN="
-    datasets/exchange_rate/exchange_rate.csv
-    datasets/illness/national_illness.csv"
+    ../../datasets/exchange_rate/exchange_rate.csv
+    ../../datasets/illness/national_illness.csv"
 
 TEST="
-    datasets/exchange_rate/exchange_rate.csv
-    datasets/illness/national_illness.csv"
-PROMPT="prompt_bank/prompt_data_normalize_split"
+    ../../datasets/exchange_rate/exchange_rate.csv
+    ../../datasets/illness/national_illness.csv"
+PROMPT="../../prompt_bank/prompt_data_normalize_split"
 lr=1e-3
 epoch=10
 downsample_rate=20
@@ -15,8 +15,8 @@ d_ff=128
 
 for pred_len in 96
 do
-    OUTPUT_PATH="/home/zx57/ltsm/output/ltsm_tokenizer_lr${lr}_loraFalse_down${downsample_rate}_freeze${freeze}_e${epoch}_pred${pred_len}/"
-    CUDA_VISIBLE_DEVICES=5,6,7 python3 ./tests/test_scripts/main_tokenizer.py \
+    OUTPUT_PATH="output/ltsm_tokenizer_lr${lr}_loraFalse_down${downsample_rate}_freeze${freeze}_e${epoch}_pred${pred_len}/"
+    CUDA_VISIBLE_DEVICES=5,6,7 python3 main_tokenizer.py \
     --model LTSM_Tokenizer \
     --model_name_or_path gpt2-medium \
     --d_ff $d_ff \

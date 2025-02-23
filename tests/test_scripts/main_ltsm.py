@@ -1,16 +1,9 @@
-from ltsm.data_pipeline import StatisticalTrainingPipeline, get_args, seed_all, ModelManager
-from ltsm.models import LTSMConfig
+from ltsm.data_pipeline import StatisticalTrainingPipeline, get_args, seed_all
 import torch
 import torch.nn as nn
 import numpy as np
-import argparse
 
 if __name__ == "__main__":
-    # args = get_args()
-    # seed_all(args.seed)
-    # pipeline = TrainingPipeline(args)
-    # pipeline.run()
-
     config = get_args()
     seed = config.seed
     seed_all(seed)
@@ -28,8 +21,9 @@ if __name__ == "__main__":
             labels = inputs["labels"].to(model.module.device)
             input_data_mark = inputs["timestamp_input"].to(model.module.device)
             label_mark = inputs["timestamp_labels"].to(model.module.device)
-            outputs = model(input_data, input_data_mark, labels, label_mark)
             input_data = inputs["input_data"].to(model.module.device)
+            
+            outputs = model(input_data, input_data_mark, labels, label_mark)
             loss = nn.functional.mse_loss(outputs, labels)
             return (loss, outputs, labels)
         

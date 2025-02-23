@@ -230,7 +230,12 @@ def tokenizer_get_args():
     parser.add_argument('--gradient_accumulation_steps', type=int, default=64, help='gradient accumulation steps')
     args, unknown = parser.parse_known_args()
 
-    return args
+    config = LTSMConfig.from_dict(vars(args))
+
+    if hasattr(args, "config") and args.config:
+        config.load(args.config)
+
+    return config
 
 def tokenizer_seed_all(fixed_seed):
     random.seed(fixed_seed)

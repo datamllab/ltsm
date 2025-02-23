@@ -172,8 +172,12 @@ def anomaly_get_args():
             pred_len=args.pred_len
         )
     # self.log_info(f"Output Dir: {args.output_dir}")
+    config = LTSMConfig.from_dict(vars(args))
 
-    return args
+    if hasattr(args, "config") and args.config:
+        config.load(args.config)
+
+    return config
 
 
 def anomaly_seed_all(fixed_seed):
