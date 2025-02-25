@@ -1,4 +1,3 @@
-import argparse
 from ltsm.models import get_model, LTSMConfig
 import torch
 from torch import nn
@@ -18,7 +17,7 @@ class ModelManager:
         optimizer (torch.optim.Optimizer): Optimizer for model parameter updates.
         scheduler (torch.optim.lr_scheduler._LRScheduler): Learning rate scheduler.
     """
-    def __init__(self, args: argparse.Namespace):
+    def __init__(self, config: LTSMConfig):
         """
         Initializes the ModelManager with provided arguments and default values for model, optimizer, and scheduler.
 
@@ -38,22 +37,7 @@ class ModelManager:
             if p.requires_grad:
                 print(f"{n} is trainable...")
 
-    def freeze_parameters(self):
-        """
-        Sets certain model parameters to non-trainable, and specific parameters to trainable, based on predefined
-        lists of layer names to freeze or keep trainable.
-        """
-        freeze_param_buf = ["gpt2"]
-        for n, p in self.model.named_parameters():
-            if any(fp in n for fp in freeze_param_buf):
-                p.requires_grad = False
-                print(f"{n} has been freeezed")
-
-        trainable_param_buf = ["ln", "wpe", "in_layer", "out_layer", "lora"]
-        for n, p in self.model.named_parameters():
-            if any(fp in n for fp in trainable_param_buf):
-                p.requires_grad = True
-
+    
     def create_model(self):
         """
         Initializes and configures the model based on specified arguments, including options for

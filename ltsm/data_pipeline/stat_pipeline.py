@@ -1,26 +1,21 @@
 import numpy as np
 import torch
 import argparse
-import json
 import random
+import json
 import ipdb
 
-from ltsm.data_provider.data_factory import get_datasets
+from ltsm.common.base_training_pipeline import BaseTrainingPipeline
 from ltsm.data_provider.data_loader import HF_Dataset, HF_Timestamp_Dataset
-from ltsm.data_pipeline.model_manager import ModelManager
+from ltsm.models import LTSMConfig
+from ltsm.models.utils import print_trainable_parameters
 
-import logging
 from transformers import (
     Trainer,
     TrainingArguments
 )
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-)
-
-class TrainingPipeline():
+class StatisticalTrainingPipeline(BaseTrainingPipeline):
     """
     A pipeline for managing the training and evaluation process of a machine learning model.
 
@@ -28,7 +23,7 @@ class TrainingPipeline():
         args (argparse.Namespace): Arguments containing training configuration and hyperparameters.
         model_manager (ModelManager): An instance responsible for creating, managing, and optimizing the model.
     """
-    def __init__(self, args: argparse.Namespace):
+    def __init__(self, config: LTSMConfig, **kwargs):
         """
         Initializes the TrainingPipeline with given arguments and a model manager.
 
@@ -36,8 +31,24 @@ class TrainingPipeline():
             args (argparse.Namespace): Contains training settings such as output directory, batch size,
                                        learning rate, and other hyperparameters.
         """
-        self.args = args
-        self.model_manager = ModelManager(args)
+        super().__init__(config, **kwargs)
+        self.training_args = TrainingArguments(
+            output_dir=config.output_dir,
+            per_device_train_batch_size=config.batch_size,
+            per_device_eval_batch_size=config.batch_size,
+            evaluation_strategy="steps",
+            num_train_epochs=config.train_epochs,
+            fp16=False,
+            save_steps=100,
+            eval_steps=25,
+            logging_steps=5,
+            learning_rate=config.learning_rate,
+            gradient_accumulation_steps=config.gradient_accumulation_steps,
+            save_total_limit=10,
+            remove_unused_columns=False,
+            push_to_hub=False,
+            load_best_model_at_end=True,
+        )
 
     def run(self):
         """
@@ -51,50 +62,31 @@ class TrainingPipeline():
             - Training the model and saving metrics and state.
             - Evaluating the model on test datasets and logging metrics.
         """
-        logging.info(self.args)
-        
-        # Training settings
-        training_args = TrainingArguments(
-            output_dir=self.args.output_dir,
-            per_device_train_batch_size=self.args.batch_size,
-            per_device_eval_batch_size=self.args.batch_size,
-            evaluation_strategy="steps",
-            num_train_epochs=self.args.train_epochs,
-            fp16=False,
-            save_steps=100,
-            eval_steps=25,
-            logging_steps=5,
-            learning_rate=self.args.learning_rate,
-            gradient_accumulation_steps=self.args.gradient_accumulation_steps,
-            save_total_limit=10,
-            remove_unused_columns=False,
-            push_to_hub=False,
-            load_best_model_at_end=True,
-        )
+        self.log_info(self.config.to_dict())
+        train_dataset, eval_dataset, test_datasets, _ = self.get_datasets()
 
-        train_dataset, eval_dataset, test_datasets, _ = get_datasets(self.args)
-        if self.args.model == "Informer":
+        if self.config.model == "Informer":
             train_dataset, eval_dataset = HF_Timestamp_Dataset(train_dataset), HF_Timestamp_Dataset(eval_dataset)
         else:
             train_dataset, eval_dataset= HF_Dataset(train_dataset), HF_Dataset(eval_dataset)
         
-        model = self.model_manager.create_model()
+        print_trainable_parameters(self.model)
         
         trainer = Trainer(
-            model=model,
-            args=training_args,
-            data_collator=self.model_manager.collate_fn,
-            compute_metrics=self.model_manager.compute_metrics,
+            model=self.model,
+            args=self.training_args,
+            data_collator=self.collate_fn if self.collate_fn else BaseTrainingPipeline.default_collate_fn,
+            compute_metrics=self.compute_metrics if self.compute_metrics else BaseTrainingPipeline.default_compute_metrics,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             tokenizer=None,
-            optimizers=(self.model_manager.optimizer, self.model_manager.scheduler),
+            optimizers=(self.optimizer, self.scheduler),
         )
 
         # Overload the trainer API
-        if not self.args.eval:
-            trainer.compute_loss = self.model_manager.compute_loss
-            trainer.prediction_step = self.model_manager.prediction_step        
+        if not self.config.eval:
+            trainer.compute_loss = self.compute_loss if self.compute_loss else BaseTrainingPipeline.default_compute_loss
+            trainer.prediction_step = self.prediction_step if self.prediction_step else BaseTrainingPipeline.default_prediction_step    
             train_results = trainer.train()
             trainer.save_model()
             trainer.log_metrics("train", train_results.metrics)
@@ -103,20 +95,20 @@ class TrainingPipeline():
 
         # Testing settings
         for test_dataset in test_datasets:
-            if self.args.model == "Informer":
+            if self.config.model == "Informer":
                 test_ds = HF_Timestamp_Dataset(test_dataset)
             else:
                 test_ds = HF_Dataset(test_dataset)
                 
-            trainer.compute_loss = self.model_manager.compute_loss
-            trainer.prediction_step = self.model_manager.prediction_step
+            trainer.compute_loss = self.compute_loss if self.compute_loss else BaseTrainingPipeline.default_compute_loss
+            trainer.prediction_step = self.prediction_step if self.prediction_step else BaseTrainingPipeline.default_prediction_step    
             test_dataset = HF_Dataset(test_dataset)
 
             metrics = trainer.evaluate(test_ds)
             trainer.log_metrics("Test", metrics)
             trainer.save_metrics("Test", metrics)
 
-def get_args():
+def get_args() -> LTSMConfig:
     parser = argparse.ArgumentParser(description='LTSM')
     
     # Load JSON config file
@@ -207,16 +199,12 @@ def get_args():
     parser.add_argument('--individual', type=int, default=0, help='individual head; True 1 False 0')
     
     args, unknown = parser.parse_known_args()
+    config = LTSMConfig.from_dict(vars(args))
 
-    if args.config:
-        with open(args.config, 'r') as f:
-            config = json.load(f)
-            json_args = argparse.Namespace(**config)
+    if hasattr(args, "config") and args.config:
+        config.load(args.config)
 
-            for key, value in vars(json_args).items():
-                setattr(args, key, value)
-
-    return args
+    return config
 
 
 def seed_all(fixed_seed):

@@ -2,12 +2,10 @@ import os
 import torch
 import numpy as np
 import pandas as pd
-from torch.utils.data import DataLoader
 from ltsm.data_reader import reader_dict
 from ltsm.data_provider.data_splitter import SplitterByTimestamp
 from ltsm.data_provider.tokenizer import processor_dict
 from ltsm.data_provider.dataset import TSDataset,  TSPromptDataset, TSTokenDataset
-from ltsm.data_provider.data_loader import Dataset_Custom, Dataset_ETT_hour, Dataset_ETT_minute
 
 from typing import Tuple, List, Union, Dict
 import logging
@@ -238,16 +236,9 @@ class DatasetFactory:
         for data_path in self.data_paths:
             # Step 0: Read data, the output is a list of 1-d time-series
             df_data = self.fetch(data_path)
-            #print(df_data.index)
-            #print(df_data.loc['anomaly'].iloc[:20])
-            #print(df_data.shape)
 
             # Step 1: Get train, val, and test splits
             sub_train_data, sub_val_data, sub_test_data, buff = self.splitter.get_csv_splits(df_data, self.do_anomaly)
-            # print(len(sub_train_data), len(sub_val_data), len(sub_test_data))
-            # print(sub_train_data[0].shape, sub_val_data[0].shape, sub_test_data[0].shape)
-            #print(sub_train_data[-1][:10])
-            
 
             # Step 2: Scale the datasets. We fit on the whole sequence by default.
             # To fit on the train sequence only, set scale_on_train=True
@@ -291,9 +282,6 @@ class DatasetFactory:
             val_prompts = [data for data, instance_idx in zip(val_prompts, buff) if instance_idx not in missing]
             sub_test_prompt_data = [data for data, instance_idx in zip(sub_test_prompt_data, buff) if instance_idx not in missing]
 
-            # print(len(sub_train_data), len(sub_val_data), len(sub_test_data))
-            # print(sub_train_data[0].shape, sub_val_data[0].shape, sub_test_data[0].shape)
-
             if self.do_anomaly:
                 label_train = sub_train_data[-1]
                 label_val = sub_val_data[-1]
@@ -302,19 +290,12 @@ class DatasetFactory:
                 sub_train_data = [[(x,y) for x,y in zip(data, label_train)] for data in sub_train_data[:-1]]
                 sub_val_data = [[(x,y) for x,y in zip(data, label_val)] for data in sub_val_data[:-1]]
                 sub_test_data = [[(x,y) for x,y in zip(data, label_test)] for data in sub_test_data[:-1]]
-
-                # print(len(sub_train_data), len(sub_val_data), len(sub_test_data))
-                # print(sub_train_data[0][0:2], sub_val_data[0][0:2], sub_test_data[0][0:2])
                 
-
             train_prompt_data.extend(train_prompts)
             val_prompt_data.extend(val_prompts)
             
             train_data.extend(sub_train_data)
             val_data.extend(sub_val_data)
-
-            
-
 
             if self.split_test_sets:
                 # Create a Torch dataset for each sub test dataset
@@ -324,11 +305,6 @@ class DatasetFactory:
                 test_prompt_data.extend(sub_test_prompt_data)
         
         # Step 3: Create Torch datasets (samplers)
-        # print("====================================")
-        # print("len(train_data):", len(train_data))
-        # print("len(train_data[0]):", len(train_data[0]),len(train_data[1]))
-        # print("len(train_data[-1]):",len(train_data[-1]),len(train_data[-2]))
-        # print("====================================")
         
         train_ds = self.createTorchDS(train_data, train_prompt_data, self.downsample_rate, self.do_anomaly)
         if os.path.split(os.path.dirname(self.data_paths[0]))[-1] == "monash":
@@ -340,85 +316,3 @@ class DatasetFactory:
             test_ds_list.append(self.createTorchDS(test_data, test_prompt_data, 1, self.do_anomaly))
         
         return train_ds, val_ds, test_ds_list
-
-def get_datasets(args): 
-    if "LTSM" in args.model:
-        # Create datasets
-        dataset_factory = DatasetFactory(
-            data_paths=args.data_path,
-            prompt_data_path=args.prompt_data_path,
-            data_processing=args.data_processing,
-            seq_len=args.seq_len,
-            pred_len=args.pred_len,
-            train_ratio=args.train_ratio,
-            val_ratio=args.val_ratio,
-            model=args.model,
-            split_test_sets=False,
-            downsample_rate=args.downsample_rate,
-            do_anomaly=args.do_anomaly
-        )
-        train_dataset, val_dataset, test_datasets = dataset_factory.getDatasets()
-        processor = dataset_factory.processor
-    else:
-        timeenc = 0 if args.embed != 'timeF' else 1
-        Data = Dataset_Custom
-        if args.data == "ETTh1" or args.data == "ETTh2":
-            Data = Dataset_ETT_hour
-        elif args.data == "ETTm1" or args.data == "ETTm2":
-            Data = Dataset_ETT_minute
-
-        train_dataset = Data(
-            data_path=args.data_path[0],
-            split='train',
-            size=[args.seq_len, args.pred_len],
-            freq=args.freq,
-            timeenc=timeenc,
-            features=args.features
-        )
-        val_dataset = Data(
-            data_path=args.data_path[0],
-            split='val',
-            size=[args.seq_len, args.pred_len],
-            freq=args.freq,
-            timeenc=timeenc,
-            features=args.features
-        )
-        test_datasets = [Data(
-            data_path=args.data_path[0],
-            split='test',
-            size=[args.seq_len, args.pred_len],
-            freq=args.freq,
-            timeenc=timeenc,
-            features=args.features
-        )]
-        processor = train_dataset.scaler
-
-    return train_dataset, val_dataset, test_datasets, processor
-    
-def get_data_loaders(args):
-    train_dataset, val_dataset, test_datasets, processor = get_datasets()
-    print(f"Data loaded, train size {len(train_dataset)}, val size {len(val_dataset)}")
-
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=args.batch_size,
-        shuffle=True,
-        num_workers=0,
-    )
-
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=args.batch_size,
-        shuffle=True,
-        num_workers=0,
-    )
-
-    # split_test_data set to False, length of test_datasets is 1
-    test_loader = DataLoader(
-        test_datasets[0],
-        batch_size=args.batch_size,
-        shuffle=True,
-        num_workers=0,
-    )
-
-    return train_loader, val_loader, test_loader, processor

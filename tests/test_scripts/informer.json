@@ -2,18 +2,14 @@
     "model": "Informer",
     "model_name_or_path": "gpt2-medium",
     "pred_len": 96,
-    "gradient_accumulation_steps": 64,
+    "gradient_accumulation_steps": 512,
     "e_layers": 3,
     "d_layers": 1,
     "n_heads": 16,
     "d_model": 128,
     "d_ff": 256,
     "dropout": 0.2,
-    "fc_dropout": 0.2,
-    "head_dropout": 0,
     "seq_len": 336,
-    "patch_len": 16,
-    "stride": 8,
     "des": "Exp",
     "train_epochs": 100,
     "patience": 10,
@@ -37,5 +33,6 @@
     "distil": 1,
     "embed_type": 0,
     "activation": "gelu",
-    "features": "M"
+    "features": "M",
+    "local_pretrain": 0
 }
