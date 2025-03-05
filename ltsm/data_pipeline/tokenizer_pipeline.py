@@ -12,12 +12,12 @@ from torch import nn
 from ltsm.data_provider.data_loader import HF_Dataset
 from ltsm.data_provider.tokenizer.tokenizer_processor import TokenizerConfig, ChronosTokenizer
 from ltsm.common.base_training_pipeline import BaseTrainingPipeline
-from ltsm.models import LTSMConfig
 from peft import get_peft_model, LoraConfig
 
 from transformers import (
     Trainer,
-    TrainingArguments
+    TrainingArguments,
+    PretrainedConfig
 )
 
 class TokenizerTrainingPipeline(BaseTrainingPipeline):
@@ -28,15 +28,16 @@ class TokenizerTrainingPipeline(BaseTrainingPipeline):
         args (argparse.Namespace): Arguments containing training configuration and hyperparameters.
         model_manager (ModelManager): An instance responsible for creating, managing, and optimizing the model.
     """
-    def __init__(self, config: LTSMConfig, **kwargs):
+    def __init__(self, config: PretrainedConfig, **kwargs):
         """
         Initializes the TrainingPipeline with given arguments and a model manager.
 
         Args:
-            config (LTSMConfig): Contains training settings such as output directory, batch size,
+            config (PretrainedConfig): Contains training settings such as output directory, batch size,
                                         learning rate, and other hyperparameters.
             kwargs: Additional keyword arguments for BaseTrainingPipeline initialization.
         """
+        # TODO: Replace PretrainedConfig with TrainingConfig
         super().__init__(config, **kwargs)
         self.tokenizer = self.create_tokenizer()
 
@@ -230,7 +231,7 @@ def tokenizer_get_args():
     parser.add_argument('--gradient_accumulation_steps', type=int, default=64, help='gradient accumulation steps')
     args, unknown = parser.parse_known_args()
 
-    config = LTSMConfig.from_dict(vars(args))
+    config = PretrainedConfig.from_dict(vars(args))
 
     if hasattr(args, "config") and args.config:
         config.load(args.config)

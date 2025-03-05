@@ -1,4 +1,3 @@
-from .ltsm_base import LTSMConfig
 from .ltsm_stat_model import LTSM
 from .ltsm_wordprompt import LTSM_WordPrompt
 from .ltsm_ts_tokenizer import LTSM_Tokenizer
@@ -30,12 +29,14 @@ register_model(PatchTST, 'PatchTST')
 register_model(DLinear, 'DLinear')
 register_model(Informer, 'Informer')
 
-def get_model(config: PretrainedConfig) -> PreTrainedModel:
+def get_model(config: PretrainedConfig, model_name: str, local_pretrain: str = None) -> PreTrainedModel:
     """
     Factory method to create a model by name.
     
     Args:
         config (PreTrainedConfig): The configuration for the model.
+        model_name (str): The name of the model to instantiate.
+        local_pretrain (bool): If True, load the model from a local pretraining path.
     
     Returns:
         torch.nn.Module: Instantiated model.
@@ -43,21 +44,18 @@ def get_model(config: PretrainedConfig) -> PreTrainedModel:
     Raises:
         ValueError: If the model name is not found in model_dict.
     """
-    model_name = config.model
     if model_name not in model_dict:
         raise ValueError(f"Model {model_name} is not registered. Available models: {list(model_dict.keys())}")
     
     # Check for local pretraining
-    local_pretrain = getattr(config, "local_pretrain", False)
-    if not local_pretrain:
+    if local_pretrain is None or local_pretrain == "None":
         return model_dict[model_name](config)
     else:
-        model_config = PretrainedConfig.from_pretrained(config.local_pretrain)
-        return model_dict[model_name].from_pretrained(config.local_pretrain, model_config)
+        model_config = PretrainedConfig.from_pretrained(local_pretrain)
+        return model_dict[model_name].from_pretrained(local_pretrain, model_config)
 
 
 __all__ = {
-    LTSMConfig,
     register_model,
     get_model,
     PatchTST,

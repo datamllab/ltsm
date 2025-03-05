@@ -5,14 +5,15 @@ import random
 import json
 import ipdb
 
-from ltsm.common.base_training_pipeline import BaseTrainingPipeline
+from ltsm.common.base_training_pipeline import BaseTrainingPipeline, TrainingConfig
 from ltsm.data_provider.data_loader import HF_Dataset, HF_Timestamp_Dataset
-from ltsm.models import LTSMConfig
 from ltsm.models.utils import print_trainable_parameters
+from ltsm.models import model_dict
 
 from transformers import (
     Trainer,
-    TrainingArguments
+    TrainingArguments,
+    PretrainedConfig
 )
 
 class StatisticalTrainingPipeline(BaseTrainingPipeline):
@@ -23,7 +24,7 @@ class StatisticalTrainingPipeline(BaseTrainingPipeline):
         args (argparse.Namespace): Arguments containing training configuration and hyperparameters.
         model_manager (ModelManager): An instance responsible for creating, managing, and optimizing the model.
     """
-    def __init__(self, config: LTSMConfig, **kwargs):
+    def __init__(self, config: TrainingConfig, **kwargs):
         """
         Initializes the TrainingPipeline with given arguments and a model manager.
 
@@ -32,18 +33,19 @@ class StatisticalTrainingPipeline(BaseTrainingPipeline):
                                        learning rate, and other hyperparameters.
         """
         super().__init__(config, **kwargs)
+        
         self.training_args = TrainingArguments(
-            output_dir=config.output_dir,
-            per_device_train_batch_size=config.batch_size,
-            per_device_eval_batch_size=config.batch_size,
+            output_dir=config.train_params["output_dir"],
+            per_device_train_batch_size=config.train_params["batch_size"],
+            per_device_eval_batch_size=config.train_params["batch_size"],
             evaluation_strategy="steps",
-            num_train_epochs=config.train_epochs,
+            num_train_epochs=config.train_params["train_epochs"],
             fp16=False,
             save_steps=100,
             eval_steps=25,
             logging_steps=5,
-            learning_rate=config.learning_rate,
-            gradient_accumulation_steps=config.gradient_accumulation_steps,
+            learning_rate=config.train_params["learning_rate"],
+            gradient_accumulation_steps=config.train_params["gradient_accumulation_steps"],
             save_total_limit=10,
             remove_unused_columns=False,
             push_to_hub=False,
@@ -55,17 +57,17 @@ class StatisticalTrainingPipeline(BaseTrainingPipeline):
         Runs the training and evaluation process for the model.
 
         The process includes:
-            - Logging configuration and training arguments.
+            - Logging config.train_params["ration and training arguments.
             - Creating a model with the model manager.
             - Setting up training and evaluation parameters.
             - Loading and formatting training and evaluation datasets.
             - Training the model and saving metrics and state.
             - Evaluating the model on test datasets and logging metrics.
         """
-        self.log_info(self.config.to_dict())
+        self.log_info(self.config.__repr__())
         train_dataset, eval_dataset, test_datasets, _ = self.get_datasets()
 
-        if self.config.model == "Informer":
+        if self.config.train_params["model"] == "Informer":
             train_dataset, eval_dataset = HF_Timestamp_Dataset(train_dataset), HF_Timestamp_Dataset(eval_dataset)
         else:
             train_dataset, eval_dataset= HF_Dataset(train_dataset), HF_Dataset(eval_dataset)
@@ -84,7 +86,7 @@ class StatisticalTrainingPipeline(BaseTrainingPipeline):
         )
 
         # Overload the trainer API
-        if not self.config.eval:
+        if not self.config.train_params["eval"]:
             trainer.compute_loss = self.compute_loss if self.compute_loss else BaseTrainingPipeline.default_compute_loss
             trainer.prediction_step = self.prediction_step if self.prediction_step else BaseTrainingPipeline.default_prediction_step    
             train_results = trainer.train()
@@ -95,7 +97,7 @@ class StatisticalTrainingPipeline(BaseTrainingPipeline):
 
         # Testing settings
         for test_dataset in test_datasets:
-            if self.config.model == "Informer":
+            if self.config.train_params["model"] == "Informer":
                 test_ds = HF_Timestamp_Dataset(test_dataset)
             else:
                 test_ds = HF_Dataset(test_dataset)
@@ -108,7 +110,7 @@ class StatisticalTrainingPipeline(BaseTrainingPipeline):
             trainer.log_metrics("Test", metrics)
             trainer.save_metrics("Test", metrics)
 
-def get_args() -> LTSMConfig:
+def get_args() -> TrainingConfig:
     parser = argparse.ArgumentParser(description='LTSM')
     
     # Load JSON config file
@@ -199,12 +201,28 @@ def get_args() -> LTSMConfig:
     parser.add_argument('--individual', type=int, default=0, help='individual head; True 1 False 0')
     
     args, unknown = parser.parse_known_args()
-    config = LTSMConfig.from_dict(vars(args))
+
+    # Split arguments into model and training parameters
+    args_dict = vars(args)
+    train_params_keys = TrainingConfig.train_params.keys()
+    train_params = {k: v for k, v in args_dict.items() if k in train_params_keys}
+    model_params = {k: v for k, v in args_dict.items() if k not in train_params_keys}
 
     if hasattr(args, "config") and args.config:
-        config.load(args.config)
+        with open(args.config, 'r') as f:
+            config_dict = json.load(f)
+            train_params.update(config_dict["train_params"])
+            model_params.update(config_dict["model_config"])
 
-    return config
+    # Create the pretrained config from model parameters
+    if train_params["model"] in model_dict:
+        config_class = model_dict[train_params["model"]].config_class
+        config = config_class.from_dict(model_params)
+    else:
+        config = PretrainedConfig.from_dict(model_params)
+
+    train_config = TrainingConfig(config, **train_params)
+    return train_config
 
 
 def seed_all(fixed_seed):

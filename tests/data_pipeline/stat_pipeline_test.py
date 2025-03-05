@@ -1,26 +1,21 @@
 import pytest
-from ltsm.models import LTSMConfig
+from ltsm.models.base_config import LTSMConfig
 from ltsm.data_provider.dataset import TSDataset
 from ltsm.data_pipeline import StatisticalTrainingPipeline
+from ltsm.common.base_training_pipeline import TrainingConfig
 from transformers import TrainingArguments
 
 @pytest.fixture
-def mock_args():
+def mock_config():
     #Fixture for creating mock arguments
-    arg_dict = {
+    
+    train_params = {
         'model': 'LTSM',
         'model_name_or_path': 'gpt2-medium',
         'log_file': 'log.txt',
-        'gpt_layers': 3,
         'data_path':'./datasets',
         'prompt_data_path':'./prompt_bank',
         'output_dir': './output',
-        'patch_size': 16,
-        'pretrain': True,
-        'stride': 2,
-        'seq_len': 256,
-        'pred_len': 12,
-        'prompt_len': 8,
         'train_ratio': 0.7,
         'val_ratio': 0.1,
         'tmax': 10,
@@ -34,20 +29,36 @@ def mock_args():
         'data_processing': 'standard_scaler',
         'gradient_accumulation_steps': 1
     }
+
+    model_params = {  
+        'gpt_layers': 3,
+        'patch_size': 16,
+        'pretrain': True,
+        'stride': 2,
+        'seq_len': 256,
+        'pred_len': 12,
+        'prompt_len': 8,
+    }
     
-    return LTSMConfig(**arg_dict)
+    model_config = LTSMConfig(**model_params)
+    return TrainingConfig(model_config, **train_params)
 
 @pytest.fixture
-def pipeline(mock_args):
+def pipeline(mock_config):
     # Fixture to create pipeline
-    return StatisticalTrainingPipeline(mock_args)
+    return StatisticalTrainingPipeline(mock_config)
 
-def test_initialization(pipeline, mock_args):
+def test_initialization(pipeline, mock_config):
     #Test that StatisticalTrainingPipeline initializes correctly
-
-    for arg, value in vars(mock_args).items():
-        assert getattr(pipeline.config, arg) == value
-    assert isinstance(pipeline.training_args, TrainingArguments)
+    
+    assert pipeline.config == mock_config
+    assert pipeline.training_args.output_dir == mock_config.train_params["output_dir"]
+    assert pipeline.training_args.per_device_train_batch_size == mock_config.train_params["batch_size"]
+    assert pipeline.training_args.per_device_eval_batch_size == mock_config.train_params["batch_size"]
+    assert pipeline.training_args.num_train_epochs == mock_config.train_params["train_epochs"]
+    assert pipeline.training_args.learning_rate == mock_config.train_params["learning_rate"]
+    assert pipeline.training_args.gradient_accumulation_steps == mock_config.train_params["gradient_accumulation_steps"]
+    
 
 def test_run_training(mocker, pipeline):
     # Mock dataset loading and Trainer behavior
@@ -61,7 +72,7 @@ def test_run_training(mocker, pipeline):
     mock_get_datasets.assert_called_once()
 
     # Check if train is called when eval is False
-    if not pipeline.config.eval:
+    if not pipeline.config.train_params["eval"]:
         assert mock_trainer.return_value.train.called
         assert mock_trainer.return_value.save_model.called
     
@@ -71,7 +82,7 @@ def test_run_training(mocker, pipeline):
 
 
 def test_run_evaluation_only(mocker, pipeline):
-    pipeline.config.eval = True  # Set eval-only mode
+    pipeline.config.train_params["eval"] = True  # Set eval-only mode
     # Mock dataset loading and Trainer behavior
     mock_get_datasets = mocker.patch.object(pipeline, 'get_datasets', return_value=(TSDataset([], 0, 0), TSDataset([], 0, 0), [None, None, None, None], None))
     mock_trainer = mocker.patch('ltsm.data_pipeline.stat_pipeline.Trainer')

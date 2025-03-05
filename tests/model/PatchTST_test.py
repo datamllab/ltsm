@@ -1,5 +1,7 @@
 import pytest
-from ltsm.models import get_model, LTSMConfig
+from ltsm.models import get_model
+from ltsm.models.base_config import PatchTSTConfig
+from ltsm.common.base_training_pipeline import TrainingConfig
 from transformers import PreTrainedModel
 import torch
 import numpy as np
@@ -11,26 +13,13 @@ def config(tmp_path):
     prompt_data_path.mkdir()
     OUTPUT_PATH = data_path / "output"
 
-    config = {
+    train_params = {
         "data_path": str(data_path),
         "model": "PatchTST",
         "model_name_or_path": "gpt2-medium",
-        "pred_len": 96,
         "gradient_accumulation_steps": 64,
         "test_data_path_list": [str(data_path)],
         "prompt_data_path": str(prompt_data_path),
-        "enc_in": 1,
-        "e_layers": 3,
-        "n_heads": 16,
-        "d_model": 128,
-        "d_ff": 256,
-        "dropout": 0.2,
-        "fc_dropout": 0.2,
-        "head_dropout": 0,
-        "seq_len": 336,
-        "patch_len": 16,
-        "stride": 8,
-        "des": 'Exp',
         "train_epochs": 1000,
         "patience": 10,
         "lradj": 'TST',
@@ -41,60 +30,72 @@ def config(tmp_path):
         "learning_rate": 1e-3,
         "downsample_rate": 20,
         "output_dir": str(OUTPUT_PATH),
-        "eval": 0,
-        "fc_dropout": 0.05,
-        "head_dropout": 0.0,
-        "patch_len": 16,
-        "padding_patch": 'end',
-        "revin": 1,
-        "affine": 0,
-        "subtract_last": 0,
-        "decomposition": 0,
-        "kernel_size": 25,
-        "individual": 0,
+        "des": 'Exp',
+        "eval": 0
     }
-    return LTSMConfig(**config)
+    config = {
+        "pred_len": 96,
+        "enc_in": 1,
+        "seq_len": 336,
+        "patch_len": 16,
+        "decomposition": False,
+        "stride": 8,
+        "e_layers": 3,
+        "n_heads": 16,
+        "d_model": 128,
+        "d_ff": 256,
+        "dropout": 0.2,
+        "fc_dropout": 0.2,
+        "head_dropout": 0,
+        "revin": True,
+        "affine": True,
+        "subtract_last": False,
+        "individual": False
+    }
+
+    patchtst_config = PatchTSTConfig(**config)
+    return TrainingConfig(patchtst_config, **train_params)
 
 def test_model_initialization(config):
-    model = get_model(config)
+    model = get_model(config.model_config, model_name=config.train_params["model"], local_pretrain=config.train_params["local_pretrain"])
     assert model is not None
     assert isinstance(model, PreTrainedModel)
 
 
 def test_parameter_count(config):
-    model = get_model(config)
+    model = get_model(config.model_config, model_name=config.train_params["model"], local_pretrain=config.train_params["local_pretrain"])
     param_count = sum([p.numel() for p in model.parameters() if p.requires_grad])
 
-    patch_num = int((config.seq_len - config.patch_len) / config.stride + 1)
+    patch_num = int((config.model_config.seq_len - config.model_config.patch_len) / config.model_config.stride + 1)
     # multi-head self-attention parameter count (W_Q, W_K, W_V, to_out)
-    expected_param_count = 4*(config.d_model * config.d_model + config.d_model)
+    expected_param_count = 4*(config.model_config.d_model * config.model_config.d_model + config.model_config.d_model)
     # feed-forward nn parameter count
-    expected_param_count += 2*config.d_model*config.d_ff + config.d_model + config.d_ff
+    expected_param_count += 2*config.model_config.d_model*config.model_config.d_ff + config.model_config.d_model + config.model_config.d_ff
     # layer norm parameter count
-    expected_param_count += 4*config.d_model
+    expected_param_count += 4*config.model_config.d_model
 
     # multiply by number of encoder layers
-    expected_param_count *= config.e_layers
+    expected_param_count *= config.model_config.e_layers
 
     # Input encoding parameter count
-    expected_param_count += config.patch_len*config.d_model + config.d_model
+    expected_param_count += config.model_config.patch_len*config.model_config.d_model + config.model_config.d_model
 
     # Positional encoding parameter count
-    expected_param_count += patch_num*config.d_model
+    expected_param_count += patch_num*config.model_config.d_model
 
     # RevIn parameter count
     expected_param_count += 2
 
     # Flatten Head parameter count
-    expected_param_count += config.d_model*patch_num*config.pred_len + config.pred_len
+    expected_param_count += config.model_config.d_model*patch_num*config.model_config.pred_len + config.model_config.pred_len
 
     assert param_count == expected_param_count
 
 def test_forward_output_shape(config):
-    model = get_model(config)
+    model = get_model(config.model_config, model_name=config.train_params["model"], local_pretrain=config.train_params["local_pretrain"])
     batch_size = 32
     channel = 16
-    input_length = config.seq_len
+    input_length = config.model_config.seq_len
     input = torch.tensor(np.zeros((batch_size, input_length, channel))).float()
     output = model(input)
-    assert output.size() == torch.Size([batch_size, config.pred_len, channel])
+    assert output.size() == torch.Size([batch_size, config.model_config.pred_len, channel])

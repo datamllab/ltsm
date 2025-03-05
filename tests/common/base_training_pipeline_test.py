@@ -8,13 +8,24 @@ from ltsm.data_provider import TSDataset
 
 @pytest.fixture
 def mock_pipeline(mocker):
-    config = mocker.Mock()
-    config.lora = False
-    config.log_file = "out.log"
-    config.tmax = 10
-    config.freeze = False
-    model_mock = mocker.Mock()
-    model_mock.parameters.return_value = []
+    config = mocker.MagicMock()
+    config.train_params ={
+        "log_file": "out.log",
+        "tmax": 10,
+        "freeze": False,
+        "model": "LTSM",
+        "local_pretrain": "None",
+        "batch_size": 1,
+        "data_path": ["dataset/weather.csv"],
+        "prompt_data_path": "dataset/weather.csv",
+        "data_processing": "standard_scaler",
+        "train_ratio": 0.7,
+        "val_ratio": 0.1,
+        "downsample_rate": 1,
+        "do_anomaly": False
+    }
+    config.model_config = mocker.MagicMock()
+    config.train_params["lora"] =  False
     mock_get_model = mocker.patch("ltsm.common.base_training_pipeline.get_model", return_value=None)
     mock_adam = mocker.Mock(spec=torch.optim.Adam)
     mock_scheduler = mocker.Mock(spec=torch.optim.lr_scheduler.CosineAnnealingLR)
@@ -32,17 +43,20 @@ def mock_pipeline(mocker):
     return pipeline
 
 def test_create_model_lora_enabled(mocker):
-    config = mocker.Mock()
-    config.lora = True
-    config.lora_dim = 10
-    config.learning_rate = 1e-3
-    config.log_file = "out.log"
-    config.tmax = 10
-    model_mock = mocker.Mock()
-    model_mock.parameters.return_value = []
+    config = mocker.MagicMock()
+    config.train_params ={
+        "lora_dim": 10,
+        "log_file": "out.log",
+        "tmax": 10,
+        "learning_rate": 1e-3,
+        "model": "LTSM",
+        "local_pretrain": "None"
+    }
+    config.model_config = mocker.MagicMock()
+    config.train_params["lora"] =  True
     mock_get_model = mocker.patch("ltsm.common.base_training_pipeline.get_model", return_value=None)
     mock_get_peft_model = mocker.patch("ltsm.common.base_training_pipeline.get_peft_model")
-    mock_adam = mocker.Mock(spec=torch.optim.Adam)
+    mock_adam = mocker.MagicMock(spec=torch.optim.Adam)
     mock_adam.param_groups = []
 
     pipeline = BaseTrainingPipeline(config, optimizer=mock_adam)
@@ -87,8 +101,6 @@ def test_log_exception(mock_pipeline, mocker):
     spy.assert_called_once_with("Exception occurred: Test message")
 
 def test_get_datasets(mock_pipeline, mocker):
-    mock_pipeline.config.model = "LTSM"
-
     MockDatasetFactory = mocker.patch("ltsm.common.base_training_pipeline.DatasetFactory")
     mock_factory = MockDatasetFactory.return_value
     mock_factory.getDatasets.return_value = ("train_ds", "val_ds", ["test_ds"])
@@ -102,7 +114,6 @@ def test_get_datasets(mock_pipeline, mocker):
     assert processor == "processor_mock"
 
 def test_get_data_loaders(mock_pipeline, mocker):
-    mock_pipeline.config.batch_size = 1
     dataset = TSDataset([[0.5, 0.5, 0.3, 0.4]], 1, 1)
     mock_get_datasets = mocker.patch.object(mock_pipeline, 
                                             "get_datasets", 
@@ -123,6 +134,7 @@ def test_get_data_loaders(mock_pipeline, mocker):
     train_data = list(train_loader)
     val_data = list(val_loader)
     test_data = list(test_loader)
+    print(train_data)
     
     assert len(train_data) == 3
     assert len(val_data) == 3

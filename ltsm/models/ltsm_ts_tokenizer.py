@@ -1,10 +1,11 @@
 import torch
-
+from .base_config import LTSMConfig
 from transformers.modeling_utils import PreTrainedModel
 from transformers import AutoModel, AutoConfig
 
 
 class LTSM_Tokenizer(PreTrainedModel):
+    config_class = LTSMConfig
     def __init__(self, configs):
         super().__init__(configs)
         self.patch_size = configs.patch_size

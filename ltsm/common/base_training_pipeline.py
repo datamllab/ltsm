@@ -1,19 +1,114 @@
-from ltsm.models import get_model, LTSMConfig
-from ltsm.models.utils import freeze_parameters
-from ltsm.data_provider import DatasetFactory
-from ltsm.data_provider.data_loader import Dataset_Custom, Dataset_ETT_hour, Dataset_ETT_minute
 import torch
 import numpy as np
 import torch.nn as nn
-from torch.utils.data import DataLoader
-from transformers import EvalPrediction
-from peft import get_peft_model, LoraConfig
+import json
 import logging
 import sys
+from ltsm.models import get_model, model_dict
+from ltsm.models.utils import freeze_parameters
+from ltsm.data_provider import DatasetFactory
+from ltsm.data_provider.data_loader import Dataset_Custom, Dataset_ETT_hour, Dataset_ETT_minute
+from torch.utils.data import DataLoader
+from transformers import EvalPrediction, PretrainedConfig
+from peft import get_peft_model, LoraConfig
+from dataclasses import dataclass
+
+
+@dataclass
+class TrainingConfig:
+    train_params = {
+        "model": "LTSM",
+        "learning_rate": 1e-4,
+        "batch_size": 512,
+        "train_epochs": 1,
+        "downsample_rate": 100,
+        "optimizer": "adam",
+        "weight_decay": 0.01,
+        "gradient_accumulation_steps": 64,
+        "eval": False,
+        "itr": 1,
+        "output_dir": "output/ltsm_train_lr0005/",
+        "lradj": "type1",
+        "llm_layers": 32,
+        "decay_fac": 0.75,
+        "patience": 3,
+        "num_workers": 10,
+        "data_processing": "standard_scaler",
+        "train_ratio": 0.7,
+        "val_ratio": 0.1,
+        "do_anomaly": False,
+        "seed": 2024,
+        "device": "cuda:0",
+        "checkpoints": "./checkpoints/",
+        "model_id": "test_run",
+        "tmax": 10,
+        "lora": False,
+        "lora_dim": 128,
+        "local_pretrain": "None",
+        "freeze": True,
+        "embed": "timeF",
+        "moving_avg": 25,
+        "data_path": ['dataset/weather.csv'],
+        "data": "ETTh1",
+        "features": "MS",
+        "prompt_data_path": "./weather.csv",
+    }
+    
+    def __init__(self, model_config: PretrainedConfig, **kwargs):
+        """
+        A dictionary-like object for training hyperparameters, storing both training-related
+        hyperparameters and a Hugging Face PretrainedConfig object for model parameters.
+        
+        Args:
+            model_config (PretrainedConfig): A Hugging Face configuration object for the model.
+            **kwargs: Additional training hyperparameters like learning rate, batch size, etc.
+        """
+        self.model_config = model_config
+        
+        # Update with any provided values
+        self.train_params.update(kwargs)
+
+    def __getitem__(self, key):
+        """Access hyperparameters via dictionary-style indexing."""
+        return self.train_params.get(key, None)
+
+    def __setitem__(self, key, value):
+        """Modify hyperparameters dynamically."""
+        self.train_params[key] = value
+
+    def __repr__(self):
+        """Pretty print the hyperparameters and model config."""
+        return f"TrainingConfig(model_config={self.model_config}, train_params={self.train_params})"
+
+    def save(self, filepath: str):
+        """Save hyperparameters and model config to a JSON file."""
+        data = {
+            "train_params": self.train_params,
+            "model_config": self.model_config.to_dict(),  # Convert HF config to dict
+        }
+        with open(filepath, "w") as f:
+            json.dump(data, f, indent=4)
+
+    @classmethod
+    def load(cls, filepath: str, config_class=None):
+        """Load hyperparameters and model config from a JSON file."""
+        with open(filepath, "r") as f:
+            data = json.load(f)
+        
+            if "model" in data["train_params"] and data["train_params"]["model"] in model_dict:
+                config_class = model_dict[data["train_params"]["model"]].config_class
+
+            if config_class:
+                model_config = config_class(**data["model_config"])
+            else:
+                model_config = PretrainedConfig.from_dict(data["model_config"])
+
+            return cls(model_config, **data["train_params"])
+        
 
 class BaseTrainingPipeline:
     def __init__(self, 
-                 config: LTSMConfig, 
+                 config: TrainingConfig, 
                  model=None,
                  optimizer=None,
                  scheduler=None,
@@ -31,27 +126,27 @@ class BaseTrainingPipeline:
         self.config = config
 
         if not model:
-            self.model = get_model(config)
+            self.model = get_model(config.model_config, config.train_params["model"], config.train_params["local_pretrain"])
 
-        if self.config.lora:
+        if self.config.train_params["lora"]:
             peft_config = LoraConfig(
                 target_modules=["c_attn"],
                 inference_mode=False,
-                r=self.config.lora_dim,
+                r=self.config.train_params["lora_dim"],
                 lora_alpha=32,
                 lora_dropout=0.1
             )
             self.model = get_peft_model(self.model, peft_config)
-        elif self.config.freeze:
+        elif self.config.train_params["freeze"]:
             freeze_parameters(self.model)
 
         if not optimizer:
-            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.learning_rate)
+            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.config.train_params["learning_rate"])
         else:
             self.optimizer = optimizer
         
         if not scheduler:
-            self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=config.tmax, eta_min=1e-8)
+            self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=config.train_params["tmax"], eta_min=1e-8)
         else:
             self.scheduler = scheduler
 
@@ -62,7 +157,7 @@ class BaseTrainingPipeline:
 
         handlers = [logging.StreamHandler(sys.stdout)]
         if hasattr(config, "log_file"):
-            handlers.append(logging.FileHandler(config.log_file))
+            handlers.append(logging.FileHandler(config.train_params["log_file"]))
 
         logging.basicConfig(
             handlers=handlers,
@@ -136,54 +231,54 @@ class BaseTrainingPipeline:
                 - test_datasets: A list containing the datasets used for testing.
                 - processor: The data processor used for scaling or other preprocessing tasks.
         """
-        if "LTSM" in self.config.model:
+        if "LTSM" in self.config.train_params["model"]:
             # Create datasets
             dataset_factory = DatasetFactory(
-                data_paths=self.config.data_path,
-                prompt_data_path=self.config.prompt_data_path,
-                data_processing=self.config.data_processing,
-                seq_len=self.config.seq_len,
-                pred_len=self.config.pred_len,
-                train_ratio=self.config.train_ratio,
-                val_ratio=self.config.val_ratio,
-                model=self.config.model,
+                data_paths=self.config.train_params["data_path"],
+                prompt_data_path=self.config.train_params["prompt_data_path"],
+                data_processing=self.config.train_params["data_processing"],
+                seq_len=self.config.model_config.seq_len,
+                pred_len=self.config.model_config.pred_len,
+                train_ratio=self.config.train_params["train_ratio"],
+                val_ratio=self.config.train_params["val_ratio"],
+                model=self.config.train_params["model"],
                 split_test_sets=False,
-                downsample_rate=self.config.downsample_rate,
-                do_anomaly=self.config.do_anomaly
+                downsample_rate=self.config.train_params["downsample_rate"],
+                do_anomaly=self.config.train_params["do_anomaly"]
             )
             train_dataset, val_dataset, test_datasets = dataset_factory.getDatasets()
             processor = dataset_factory.processor
         else:
-            timeenc = 0 if self.config.embed != 'timeF' else 1
+            timeenc = 0 if self.config.model_config.embed != 'timeF' else 1
             Data = Dataset_Custom
-            if self.config.data == "ETTh1" or self.config.data == "ETTh2":
+            if self.config.train_params["data"] == "ETTh1" or self.config.train_params["data"] == "ETTh2":
                 Data = Dataset_ETT_hour
-            elif self.config.data == "ETTm1" or self.config.data == "ETTm2":
+            elif self.config.train_params["data"] == "ETTm1" or self.config.train_params["data"] == "ETTm2":
                 Data = Dataset_ETT_minute
 
             train_dataset = Data(
-                data_path=self.config.data_path[0],
+                data_path=self.config.train_params["data_path"][0],
                 split='train',
-                size=[self.config.seq_len, self.config.pred_len],
-                freq=self.config.freq,
+                size=[self.config.model_config.seq_len, self.config.model_config.pred_len],
+                freq=self.config.model_config.freq,
                 timeenc=timeenc,
-                features=self.config.features
+                features=self.config.train_params["features"],
             )
             val_dataset = Data(
-                data_path=self.config.data_path[0],
+                data_path=self.config.train_params["data_path"][0],
                 split='val',
-                size=[self.config.seq_len, self.config.pred_len],
-                freq=self.config.freq,
+                size=[self.config.model_config.seq_len, self.config.model_config.pred_len],
+                freq=self.config.model_config.freq,
                 timeenc=timeenc,
-                features=self.config.features
+                features=self.config.train_params["features"],
             )
             test_datasets = [Data(
-                data_path=self.config.data_path[0],
+                data_path=self.config.train_params["data_path"][0],
                 split='test',
-                size=[self.config.seq_len, self.config.pred_len],
-                freq=self.config.freq,
+                size=[self.config.model_config.seq_len, self.config.model_config.pred_len],
+                freq=self.config.model_config.freq,
                 timeenc=timeenc,
-                features=self.config.features
+                features=self.config.train_params["features"],
             )]
             processor = train_dataset.scaler
 
@@ -206,14 +301,14 @@ class BaseTrainingPipeline:
 
         train_loader = DataLoader(
             train_dataset,
-            batch_size=self.config.batch_size,
+            batch_size=self.config.train_params["batch_size"],
             shuffle=True,
             num_workers=0,
         )
 
         val_loader = DataLoader(
             val_dataset,
-            batch_size=self.config.batch_size,
+            batch_size=self.config.train_params["batch_size"],
             shuffle=True,
             num_workers=0,
         )
@@ -221,7 +316,7 @@ class BaseTrainingPipeline:
         # split_test_data set to False, length of test_datasets is 1
         test_loader = DataLoader(
             test_datasets[0],
-            batch_size=self.config.batch_size,
+            batch_size=self.config.train_params["batch_size"],
             shuffle=True,
             num_workers=0,
         )

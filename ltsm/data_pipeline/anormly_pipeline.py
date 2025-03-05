@@ -16,15 +16,14 @@ import json
 
 from ltsm.data_provider.data_loader import HF_Dataset
 from ltsm.common.base_training_pipeline import BaseTrainingPipeline
-from ltsm.models import LTSMConfig
 
 from sklearn.metrics import precision_score, recall_score, f1_score
 
 from transformers import (
     Trainer,
-    TrainingArguments
+    TrainingArguments,
+    PretrainedConfig
 )
-
 
 def compute_loss(model, inputs, return_outputs=False):
     """
@@ -71,7 +70,7 @@ class AnomalyTrainingPipeline(BaseTrainingPipeline):
         args (argparse.Namespace): Arguments containing training configuration and hyperparameters.
         model_manager (ModelManager): An instance responsible for creating, managing, and optimizing the model.
     """
-    def __init__(self, config: LTSMConfig, **kwargs):
+    def __init__(self, config: PretrainedConfig, **kwargs):
         """
         Initializes the TrainingPipeline with given arguments and a model manager.
 
@@ -79,6 +78,7 @@ class AnomalyTrainingPipeline(BaseTrainingPipeline):
             args (argparse.Namespace): Contains training settings such as output directory, batch size,
                                        learning rate, and other hyperparameters.
         """
+        # TODO: Replace PretrainedConfig with TrainingConfig
         super().__init__(config, compute_loss=compute_loss, compute_metrics=compute_metrics, **kwargs)
         # Training settings
         self.training_args = TrainingArguments(
@@ -172,7 +172,7 @@ def anomaly_get_args():
             pred_len=args.pred_len
         )
     # self.log_info(f"Output Dir: {args.output_dir}")
-    config = LTSMConfig.from_dict(vars(args))
+    config = PretrainedConfig.from_dict(vars(args))
 
     if hasattr(args, "config") and args.config:
         config.load(args.config)
