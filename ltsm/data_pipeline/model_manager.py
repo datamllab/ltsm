@@ -1,4 +1,5 @@
-from ltsm.models import get_model, LTSMConfig
+from ltsm.models import get_model
+from ltsm.models.base_config import LTSMConfig
 import torch
 from torch import nn
 import numpy as np
@@ -7,6 +8,7 @@ from transformers import (
     EvalPrediction,
 )
 
+# Deprecated: This class is not used in the current implementation.
 class ModelManager:
     """
     Manages model creation, parameter settings, optimizer, and evaluation metrics for training.

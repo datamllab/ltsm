@@ -5,15 +5,15 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from transformers import PreTrainedModel
-from .ltsm_base import LTSMConfig
+from .base_config import DLinearConfig
 
 class DLinear(PreTrainedModel):
     """
     Decomposition-Linear
     """
-    config_class = LTSMConfig
+    config_class = DLinearConfig
 
-    def __init__(self, config: LTSMConfig, **kwargs):
+    def __init__(self, config: DLinearConfig, **kwargs):
         super().__init__(config)
         self.seq_len = config.seq_len
         self.pred_len = config.pred_len

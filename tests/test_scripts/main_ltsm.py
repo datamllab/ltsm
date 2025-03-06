@@ -1,14 +1,21 @@
 from ltsm.data_pipeline import StatisticalTrainingPipeline, get_args, seed_all
+from ltsm.common.base_training_pipeline import TrainingConfig
 import torch
 import torch.nn as nn
 import numpy as np
 
 if __name__ == "__main__":
+    # Two ways to load the configuration: from a JSON file or from command line arguments
+    # First method
     config = get_args()
-    seed = config.seed
+
+    # Second method
+    # train_config = TrainingConfig.load("ltsm.json")
+
+    seed = config.train_params["seed"]
     seed_all(seed)
 
-    if config.model == "Informer":
+    if config.train_params["model"] == "Informer":
         def collate_fn(batch):
             return {
                 'input_data': torch.from_numpy(np.stack([x['input_data'] for x in batch])).type(torch.float32),
