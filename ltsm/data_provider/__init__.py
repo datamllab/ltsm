@@ -13,6 +13,7 @@ from .data_loader import (
 )
 from .data_splitter import SplitterByTimestamp
 from .dataset import TSDataset, TSPromptDataset, TSTokenDataset
+from .prompt_generator import prompt_generate_split, prompt_normalization_split
 
 __all__ = {
     DatasetFactory,
@@ -29,5 +30,7 @@ __all__ = {
     SplitterByTimestamp,
     TSDataset, 
     TSPromptDataset, 
-    TSTokenDataset
+    TSTokenDataset,
+    prompt_generate_split,
+    prompt_normalization_split
 }
