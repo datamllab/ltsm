@@ -22,7 +22,8 @@ def mock_pipeline(mocker):
         "train_ratio": 0.7,
         "val_ratio": 0.1,
         "downsample_rate": 1,
-        "do_anomaly": False
+        "do_anomaly": False,
+        "hf_hub_model": None
     }
     config.model_config = mocker.MagicMock()
     config.train_params["lora"] =  False
@@ -50,7 +51,8 @@ def test_create_model_lora_enabled(mocker):
         "tmax": 10,
         "learning_rate": 1e-3,
         "model": "LTSM",
-        "local_pretrain": "None"
+        "local_pretrain": "None",
+        "hf_hub_model": None
     }
     config.model_config = mocker.MagicMock()
     config.train_params["lora"] =  True
