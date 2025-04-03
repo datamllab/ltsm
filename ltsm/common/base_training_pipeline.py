@@ -52,6 +52,7 @@ class TrainingConfig:
         "data": "ETTh1",
         "features": "MS",
         "prompt_data_path": "./weather.csv",
+        "hf_hub_model": None
     }
     
     def __init__(self, model_config: PretrainedConfig, **kwargs):
@@ -126,7 +127,7 @@ class BaseTrainingPipeline:
         self.config = config
 
         if not model:
-            self.model = get_model(config.model_config, config.train_params["model"], config.train_params["local_pretrain"])
+            self.model = get_model(config.model_config, config.train_params["model"], config.train_params["local_pretrain"], config.train_params["hf_hub_model"])
 
         if self.config.train_params["lora"]:
             peft_config = LoraConfig(
