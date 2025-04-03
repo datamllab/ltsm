@@ -1,5 +1,7 @@
 import pytest
-from ltsm.models import get_model, LTSMConfig
+from ltsm.models import get_model
+from ltsm.models.base_config import DLinearConfig
+from ltsm.common.base_training_pipeline import TrainingConfig
 from transformers import PreTrainedModel
 import torch
 import numpy as np
@@ -11,16 +13,13 @@ def config(tmp_path):
     prompt_data_path.mkdir()
     OUTPUT_PATH = data_path / "output"
 
-    config = {
+    train_params = {
         "data_path": str(data_path),
         "model": "DLinear",
         "model_name_or_path": "gpt2-medium",
-        "pred_len": 96,
         "gradient_accumulation_steps": 64,
         "test_data_path_list": [str(data_path)],
         "prompt_data_path": str(prompt_data_path),
-        "enc_in": 1,
-        "seq_len": 336, # Equal to the sequence length + the length of prompt
         "train_epochs": 100,
         "patience": 10,
         "lradj": 'TST',
@@ -32,30 +31,40 @@ def config(tmp_path):
         "downsample_rate": 20,
         "output_dir": str(OUTPUT_PATH),
         "eval": 0,
-        "individual": 0,
+        "local_pretrain": "None"
     }
-    return LTSMConfig(**config)
+    config = {
+        "pred_len": 96,
+        "enc_in": 1,
+        "seq_len": 336, # Equal to the sequence length + the length of prompt
+        "individual": 0,
+        "embed": "timeF"
+    }
+    dlinear_config = DLinearConfig(**config)
+
+    return TrainingConfig(model_config=dlinear_config, **train_params)
 
 def test_model_initialization(config):
-    model = get_model(config)
+    print(config.train_params["model"])
+    model = get_model(config.model_config, model_name=config.train_params["model"], local_pretrain=config.train_params["local_pretrain"])
     assert model is not None
     assert isinstance(model, PreTrainedModel)
 
 
 def test_parameter_count(config):
-    model = get_model(config)
+    model =get_model(config.model_config, model_name=config.train_params["model"], local_pretrain=config.train_params["local_pretrain"])
     param_count = sum([p.numel() for p in model.parameters() if p.requires_grad])
 
-    expected_param_count = 2*(config.seq_len*config.pred_len + config.pred_len)
+    expected_param_count = 2*(config.model_config.seq_len*config.model_config.pred_len + config.model_config.pred_len)
 
     assert param_count == expected_param_count
 
 def test_forward_output_shape(config):
     torch.set_default_dtype(torch.float64)
-    model = get_model(config)
+    model = get_model(config.model_config, model_name=config.train_params["model"], local_pretrain=config.train_params["local_pretrain"])
     batch_size = 32
     channel = 16
-    input_length = config.seq_len
+    input_length = config.model_config.seq_len
     input = torch.tensor(np.zeros((batch_size, input_length, channel)))
     output = model(input)
-    assert output.size() == torch.Size([batch_size, config.pred_len, channel])
+    assert output.size() == torch.Size([batch_size, config.model_config.pred_len, channel])

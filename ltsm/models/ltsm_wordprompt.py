@@ -2,6 +2,7 @@ import json
 import torch
 import torch.nn as nn
 
+from .base_config import LTSMConfig
 from transformers.modeling_utils import PreTrainedModel
 from transformers import AutoModel, AutoConfig, AutoTokenizer
 
@@ -10,6 +11,7 @@ from .embed import PatchEmbedding
 
 
 class LTSM_WordPrompt(PreTrainedModel):
+    config_class = LTSMConfig
     def __init__(self, configs):
         super().__init__(configs)
         self.pred_len = configs.pred_len

@@ -9,120 +9,18 @@ import random
 import ipdb
 from torch import nn
 
-from ltsm.data_provider.data_factory import get_datasets
 from ltsm.data_provider.data_loader import HF_Dataset
-from ltsm.data_pipeline.model_manager import ModelManager
-from ltsm.data_provider.tokenizer.tokenizer_processor import TokenizerConfig
-from ltsm.models import get_model, LTSMConfig
+from ltsm.data_provider.tokenizer.tokenizer_processor import TokenizerConfig, ChronosTokenizer
+from ltsm.common.base_training_pipeline import BaseTrainingPipeline
 from peft import get_peft_model, LoraConfig
 
-import logging
 from transformers import (
     Trainer,
-    TrainingArguments
+    TrainingArguments,
+    PretrainedConfig
 )
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-)
-
-class TokenizerModelManager(ModelManager):
-   def __init__(self, args: argparse.Namespace):
-         """
-         Initializes the ModelManager with provided arguments and default values for model, optimizer, and scheduler.
-   
-         Args:
-               args (argparse.Namespace): Training configurations and hyperparameters.
-         """
-         super().__init__(args)
-         self.tokenizer = None
-   def create_tokenizer(self):
-      context_length = self.args.seq_len+self.args.pred_len
-      prediction_length = self.args.pred_len
-      n_tokens = 1024
-      n_special_tokens = 2
-      config = TokenizerConfig(
-         tokenizer_class="MeanScaleUniformBins",
-         tokenizer_kwargs=dict(low_limit=-3.0, high_limit=3.0),
-         n_tokens=n_tokens,
-         n_special_tokens=n_special_tokens,
-         pad_token_id=0,
-         eos_token_id=1,
-         use_eos_token=0,
-         model_type="causal",
-         context_length=context_length,
-         prediction_length=prediction_length,
-         num_samples=20,
-         temperature=1.0,
-         top_k=50,
-         top_p=1.0,
-      )
-
-      self.tokenizer = config.create_tokenizer()
-   def compute_loss(self, model, inputs, return_outputs=False):
-        """
-        Computes the loss for model training.
-
-        Args:
-            model (torch.nn.Module): The model used for predictions.
-            inputs (dict): Input data and labels.
-            return_outputs (bool): If True, returns both loss and model outputs.
-
-        Returns:
-            torch.Tensor or tuple: The computed loss, and optionally the outputs.
-        """
-        outputs = model(inputs["input_data"])
-        B, L, M, _ = outputs.shape
-        loss = nn.functional.cross_entropy(outputs.reshape(B*L,-1), inputs["labels"][:,1:].long().reshape(B*L))
-        return (loss, outputs) if return_outputs else loss
-   
-   @torch.no_grad()
-   def prediction_step(self, model, inputs, prediction_loss_only=False, ignore_keys=None):
-        input_data = inputs["input_data"].to(model.module.device)
-        labels = inputs["labels"].to(model.module.device)
-        scale = labels[:,0]
-        labels = labels[:,1:]
-        outputs = model(input_data)
-        indices = torch.max(outputs, dim=-1).indices
-
-        output_value = self.tokenizer.output_transform(indices, scale)
-        label_value = self.tokenizer.output_transform(labels.unsqueeze(-1).long(), scale)
-        loss = nn.functional.mse_loss(output_value, label_value)
-        return (loss, output_value, label_value)
-   
-   def create_model(self):
-      """
-        Initializes and configures the model based on specified arguments, including options for
-        freezing parameters or applying LoRA (Low-Rank Adaptation).
-
-        Returns:
-            torch.nn.Module: The configured model ready for training.
-        """
-      model_config = LTSMConfig(**vars(self.args))
-      self.model = get_model(model_config)
-
-      if self.args.lora:
-         peft_config = LoraConfig(
-                target_modules=["c_attn"],
-                inference_mode=False,
-                r=self.args.lora_dim,
-                lora_alpha=32,
-                lora_dropout=0.1
-            )
-         self.model = get_peft_model(self.model, peft_config)
-         self.model.print_trainable_parameters()
-        
-      elif self.args.freeze:
-         self.freeze_parameters()
-
-      self.print_trainable_parameters()
-      self.create_tokenizer()
-
-        # Optimizer settings
-      return self.model
-
-class TokenizerTrainingPipeline():
+class TokenizerTrainingPipeline(BaseTrainingPipeline):
     """
     A pipeline for managing the training and evaluation process of a machine learning model.
 
@@ -130,16 +28,102 @@ class TokenizerTrainingPipeline():
         args (argparse.Namespace): Arguments containing training configuration and hyperparameters.
         model_manager (ModelManager): An instance responsible for creating, managing, and optimizing the model.
     """
-    def __init__(self, args: argparse.Namespace):
+    def __init__(self, config: PretrainedConfig, **kwargs):
         """
         Initializes the TrainingPipeline with given arguments and a model manager.
 
         Args:
-            args (argparse.Namespace): Contains training settings such as output directory, batch size,
-                                       learning rate, and other hyperparameters.
+            config (PretrainedConfig): Contains training settings such as output directory, batch size,
+                                        learning rate, and other hyperparameters.
+            kwargs: Additional keyword arguments for BaseTrainingPipeline initialization.
         """
-        self.args = args
-        self.model_manager = TokenizerModelManager(args)
+        # TODO: Replace PretrainedConfig with TrainingConfig
+        super().__init__(config, **kwargs)
+        self.tokenizer = self.create_tokenizer()
+
+        # Training settings
+        self.training_args = TrainingArguments(
+            output_dir=config.output_dir,
+            per_device_train_batch_size=config.batch_size,
+            per_device_eval_batch_size=config.batch_size,
+            evaluation_strategy="steps",
+            num_train_epochs=config.train_epochs,
+            fp16=False,
+            save_steps=100,
+            eval_steps=25,
+            logging_steps=5,
+            learning_rate=config.learning_rate,
+            gradient_accumulation_steps=config.gradient_accumulation_steps,
+            save_total_limit=10,
+            remove_unused_columns=False,
+            push_to_hub=False,
+            load_best_model_at_end=True,
+        )
+
+    def create_tokenizer(self) -> ChronosTokenizer:
+        """
+        Creates a tokenizer for the model based on the configuration settings.
+        The tokenizer is configured to handle input sequences, output sequences, and various
+        parameters related to the model's architecture and training process.
+        Returns:
+            ChronosTokenizer: An instance of the tokenizer configured for the model.
+        """
+        context_length = self.config.seq_len+self.config.pred_len
+        prediction_length = self.config.pred_len
+        n_tokens = 1024
+        n_special_tokens = 2
+        tokenizer_config = TokenizerConfig(
+            tokenizer_class="MeanScaleUniformBins",
+            tokenizer_kwargs=dict(low_limit=-3.0, high_limit=3.0),
+            n_tokens=n_tokens,
+            n_special_tokens=n_special_tokens,
+            pad_token_id=0,
+            eos_token_id=1,
+            use_eos_token=0,
+            model_type="causal",
+            context_length=context_length,
+            prediction_length=prediction_length,
+            num_samples=20,
+            temperature=1.0,
+            top_k=50,
+            top_p=1.0,
+        )
+        tokenizer = tokenizer_config.create_tokenizer()
+
+        def compute_loss(model, inputs, return_outputs=False):
+            """
+            Computes the loss for model training.
+
+            Args:
+                model (torch.nn.Module): The model used for predictions.
+                inputs (dict): Input data and labels.
+                return_outputs (bool): If True, returns both loss and model outputs.
+
+            Returns:
+                torch.Tensor or tuple: The computed loss, and optionally the outputs.
+            """
+            outputs = model(inputs["input_data"])
+            B, L, M, _ = outputs.shape
+            loss = nn.functional.cross_entropy(outputs.reshape(B*L,-1), inputs["labels"][:,1:].long().reshape(B*L))
+            return (loss, outputs) if return_outputs else loss
+    
+        @torch.no_grad()
+        def prediction_step(model, inputs, prediction_loss_only=False, ignore_keys=None):
+            input_data = inputs["input_data"].to(model.module.device)
+            labels = inputs["labels"].to(model.module.device)
+            scale = labels[:,0]
+            labels = labels[:,1:]
+            outputs = model(input_data)
+            indices = torch.max(outputs, dim=-1).indices
+
+            output_value = tokenizer.output_transform(indices, scale)
+            label_value = tokenizer.output_transform(labels.unsqueeze(-1).long(), scale)
+            loss = nn.functional.mse_loss(output_value, label_value)
+            return (loss, output_value, label_value)
+    
+        self.compute_loss = compute_loss
+        self.prediction_step = prediction_step
+        return tokenizer
 
     def run(self):
         """
@@ -153,47 +137,26 @@ class TokenizerTrainingPipeline():
             - Training the model and saving metrics and state.
             - Evaluating the model on test datasets and logging metrics.
         """
-        logging.info(self.args)
-    
-        model = self.model_manager.create_model()
+        self.log_info(self.config)
         
-        # Training settings
-        training_args = TrainingArguments(
-            output_dir=self.args.output_dir,
-            per_device_train_batch_size=self.args.batch_size,
-            per_device_eval_batch_size=self.args.batch_size,
-            evaluation_strategy="steps",
-            num_train_epochs=self.args.train_epochs,
-            fp16=False,
-            save_steps=100,
-            eval_steps=25,
-            logging_steps=5,
-            learning_rate=self.args.learning_rate,
-            gradient_accumulation_steps=self.args.gradient_accumulation_steps,
-            save_total_limit=10,
-            remove_unused_columns=False,
-            push_to_hub=False,
-            load_best_model_at_end=True,
-        )
-
-        train_dataset, eval_dataset, test_datasets, _ = get_datasets(self.args)
+        train_dataset, eval_dataset, test_datasets, _ = self.get_datasets()
         train_dataset, eval_dataset= HF_Dataset(train_dataset), HF_Dataset(eval_dataset)
         
         trainer = Trainer(
-            model=model,
-            args=training_args,
-            data_collator=self.model_manager.collate_fn,
-            compute_metrics=self.model_manager.compute_metrics,
+            model=self.model,
+            args=self.training_args,
+            data_collator=self.collate_fn,
+            compute_metrics=self.compute_metrics,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             tokenizer=None,
-            optimizers=(self.model_manager.optimizer, self.model_manager.scheduler),
+            optimizers=(self.optimizer, self.scheduler),
         )
 
         # Overload the trainer API
-        if not self.args.eval:
-            trainer.compute_loss = self.model_manager.compute_loss
-            trainer.prediction_step = self.model_manager.prediction_step        
+        if not self.config.eval:
+            trainer.compute_loss = self.compute_loss
+            trainer.prediction_step = self.prediction_step        
             train_results = trainer.train()
             trainer.save_model()
             trainer.log_metrics("train", train_results.metrics)
@@ -202,8 +165,8 @@ class TokenizerTrainingPipeline():
 
         # Testing settings
         for test_dataset in test_datasets:
-            trainer.compute_loss = self.model_manager.compute_loss
-            trainer.prediction_step = self.model_manager.prediction_step
+            trainer.compute_loss = self.compute_loss
+            trainer.prediction_step = self.prediction_step
             test_dataset = HF_Dataset(test_dataset)
 
             metrics = trainer.evaluate(test_dataset)
@@ -268,7 +231,12 @@ def tokenizer_get_args():
     parser.add_argument('--gradient_accumulation_steps', type=int, default=64, help='gradient accumulation steps')
     args, unknown = parser.parse_known_args()
 
-    return args
+    config = PretrainedConfig.from_dict(vars(args))
+
+    if hasattr(args, "config") and args.config:
+        config.load(args.config)
+
+    return config
 
 def tokenizer_seed_all(fixed_seed):
     random.seed(fixed_seed)

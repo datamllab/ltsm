@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from einops import rearrange
-from .ltsm_base import LTSMConfig
+from .base_config import LTSMConfig
 from transformers.modeling_utils import PreTrainedModel, PretrainedConfig
 from transformers import AutoModel, AutoConfig, AutoTokenizer
 

@@ -1,0 +1,21 @@
+{
+    "train_params": {
+        "model": "LTSM",
+        "train_epochs": 2,
+        "batch_size": 100,
+        "gradient_accumulation_steps": 64,
+        "prompt_data_path": "../../prompt_bank/prompt_data_normalize_split",
+        "freeze": 0,
+        "learning_rate": 1e-3,
+        "downsample_rate": 20,
+        "eval": 0,
+        "tmax": 100
+    },
+    "model_config": {
+        "model_name_or_path": "gpt2-medium",
+        "patch_size": 16,
+        "pretrain": 1,
+        "stride": 8,
+        "gpt_layers": 3
+    }
+}

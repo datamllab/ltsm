@@ -9,15 +9,15 @@ from ltsm.layers.SelfAttention_Family import FullAttention, ProbAttention, Atten
 from ltsm.layers.Embed import DataEmbedding,DataEmbedding_wo_pos,DataEmbedding_wo_temp,DataEmbedding_wo_pos_temp
 import numpy as np
 from transformers import PreTrainedModel
-from .ltsm_base import LTSMConfig
+from .base_config import InformerConfig
 
 class Informer(PreTrainedModel):
     """
     Informer with Propspare attention in O(LlogL) complexity
     """
-    config_class = LTSMConfig
+    config_class = InformerConfig
 
-    def __init__(self, config: LTSMConfig, **kwargs):
+    def __init__(self, config: InformerConfig, **kwargs):
         super().__init__(config)
         self.pred_len = config.pred_len
         self.output_attention = config.output_attention
