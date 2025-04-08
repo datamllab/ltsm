@@ -76,4 +76,4 @@ uvicorn==0.34.0
 urllib3==1.26.15
 zipp==3.15.0
 ipdb
-peft
+peft==0.10.0
