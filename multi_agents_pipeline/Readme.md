@@ -1,6 +1,6 @@
  
  # Quick Command
- The command `CUDA_VISIBLE_DEVICES=1,2,3 uvicorn multi_agents_pipeline.llm-server:app  --port <port number> --reload` should be run in the `multi_agents_pipeline` directory. e.g. `CUDA_VISIBLE_DEVICES=1,2,3 uvicorn multi_agents_pipeline.llm-server:app --reload` will run the FastAPI app on http://127.0.0.1:8000/. 
+ The command `CUDA_VISIBLE_DEVICES=1,2,3 uvicorn llm-server:app  --port <port number> --reload` should be run in the `multi_agents_pipeline` directory. e.g. `CUDA_VISIBLE_DEVICES=1,2,3 uvicorn llm-server:app --reload` will run the FastAPI app on http://127.0.0.1:8000/. 
 
 `lsof -i :8000` can be used to check the running local LLM.
 
