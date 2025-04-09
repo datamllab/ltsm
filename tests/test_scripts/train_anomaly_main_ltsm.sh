@@ -1,4 +1,4 @@
-CONFIG_PATH="./anomaly_config/config-1.json"
+CONFIG_PATH="./anomaly_config/config.json"
 
 CUDA_VISIBLE_DEVICES=6,7 python3 anomaly_main_ltsm.py \
     --config_path ${CONFIG_PATH}
