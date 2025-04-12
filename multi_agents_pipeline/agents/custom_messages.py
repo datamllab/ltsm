@@ -17,3 +17,12 @@ class TSMessage(BaseModel):
     filepath: str
     task_type:Optional[str] = None
     description: Optional[str] = None
+
+class TSTaskMessage(BaseModel):
+    """
+    passed to Planner
+    
+    This message contains a text prompt and the filepath to the data file.
+    """
+    description: str
+    filepath: str
