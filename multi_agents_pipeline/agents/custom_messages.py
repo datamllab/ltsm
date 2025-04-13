@@ -7,6 +7,7 @@ class TextMessage(BaseModel):
     passed from Planner to QA Agent"""
     source: str
     content: str
+    task: Optional[str] = None
 
 class TSMessage(BaseModel):
     """

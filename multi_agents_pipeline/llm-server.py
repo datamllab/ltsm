@@ -5,7 +5,7 @@ import torch
 
 app = FastAPI()
 model_name = "meta-llama/Meta-Llama-3-8B-Instruct"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
+tokenizer = AutoTokenizer.from_pretrained(model_name, local_files_only=True)
 model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto", torch_dtype=torch.float16)
 print(model.hf_device_map)
 

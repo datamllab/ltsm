@@ -46,7 +46,7 @@ async def main() -> None:
     await RewardAgent.register(
         runtime,
         "Reward_Agent",
-        lambda: RewardAgent(name="Reward_Agent"),
+        lambda: RewardAgent(name="Reward_Agent", model_client=model_client, force_bad_score=True),
     )
 
     runtime.start()
