@@ -45,7 +45,7 @@ class QAAgent(RoutedAgent):
         # below is the prompt that combine the task and the TS Info.
         # TODO : Modify according to the task type and task description. Currently just a placeholder
         prompt = f"""
-            You are a Time Serise Expert.
+            You are a Time Series Expert.
 
             Here is a task given by the planner: 
             {self._last_plan or "(no plan received)"}

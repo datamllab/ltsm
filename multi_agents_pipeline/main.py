@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from autogen_core import AgentId, SingleThreadedAgentRuntime, TopicId
-from autogen_ext.models.openai import OpenAIChatCompletionClient
 from autogen_core.models import (
     ChatCompletionClient,
     LLMMessage,
@@ -10,8 +9,9 @@ from autogen_core.models import (
 )
 from agents.QA_Agent import QAAgent
 from agents.TS_Agent import TSAgent
+from agents.Planning_Agent import PlanningAgent
 from agents.Reward_Agent import RewardAgent
-from agents.custom_messages import TextMessage, TSMessage
+from agents.custom_messages import TextMessage, TSMessage, TSTaskMessage
 from autogen_core import TRACE_LOGGER_NAME
 import aiofiles
 import yaml
@@ -28,6 +28,12 @@ async def main() -> None:
     runtime = SingleThreadedAgentRuntime()
 
     model_client = await get_model_client(QA_MODEL_CONFIG_PATH)
+
+    await PlanningAgent.register(
+        runtime,
+        "Planning_Agent",
+        lambda: PlanningAgent(name="Planning_Agent", model_client=model_client),
+    )
 
     await QAAgent.register(
         runtime,
@@ -83,6 +89,14 @@ async def main() -> None:
             source="Planner"
         )
     )
+
+
+    # mock a TSTaskMessage from user
+    # ts_task_message = TSTaskMessage(
+    #     description="The file contains time series data of the hand motion of an actor raising their arm. From this data alone, tell me if the actor is raising a gun or pointing their finger.",
+    #     filepath="../datasets/GunPointAgeSpan/GunPointAgeSpan_TRAIN.tsv"
+    # )
+    # await runtime.send_message(ts_task_message, AgentId("Planning_Agent", "default"))
 
 
     await runtime.stop_when_idle()
