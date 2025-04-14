@@ -20,7 +20,7 @@ from .custom_messages import TextMessage, TSMessage
 @type_subscription(topic_type="TS-Info")  # for receiving TS info from TS Agent
 @type_subscription(topic_type="QA-Response")  # for receiving QA response to process further
 class RewardAgent(RoutedAgent):
-    """TODO: verify the output of TS Agent and QA Agent. Then provide feedback.
+    """verify the output of TS Agent and QA Agent. Then provide feedback.
             Attributes (in self):
             ---------------------
             name : str
@@ -59,7 +59,7 @@ class RewardAgent(RoutedAgent):
 
     @message_handler
     async def handle_TS(self, message: TSMessage, ctx: MessageContext) -> None:
-        """This is the TS info given by Planner. LTSM will process the TS data and return the answer.
+        """This is the TS info given by TS Agent. Reward Agent will keep the TS Info and combine with QA Response.
         """
         file_path = message.filepath
         task_type = message.task_type 
@@ -78,10 +78,11 @@ class RewardAgent(RoutedAgent):
         await self.try_process_reward(ctx)
     
     async def try_process_reward(self, ctx: MessageContext) -> None:
+        """
+        Combine the TS info and QA response to send to LLM for evaluation."""
         if not self._last_ts or not self._last_qa:
             return  # wait for both messages
         
-        # TODO: read TS info from TS Message
         prompt = self.build_evaluation_prompt(self._last_ts, self._last_qa, self._last_plan or "")
 
         print(f"[{self.name}] Sending evaluation prompt to LLM...")
@@ -118,13 +119,22 @@ class RewardAgent(RoutedAgent):
         else:
             print(f"[{self.name}] Unexpected LLM response type: {type(reward_response.content)}")
 
-    def build_evaluation_prompt(self, ts_summary: str, qa_answer: str, plan: str) -> str:
+    def build_evaluation_prompt(self, ts_info: TSMessage, qa_answer: str, plan: str) -> str:
+        task_type = ts_info.task_type
+        task_descroption = ts_info.description if ts_info.description else "No task description provided."
+        ts_path = ts_info.filepath if ts_info.filepath else "No TS data provided."
+
+        ts_series = pd.read_csv(Path(ts_path)).describe().to_string()
         return f"""
         A planner issued the following task:
         {plan}
 
+        Task type: {task_type}
+
+        Task description: {task_descroption}
+
         The time-series agent produced this output (summary of data):
-        {ts_summary}
+        {ts_series}
 
         The QA agent responded:
         "{qa_answer}"
