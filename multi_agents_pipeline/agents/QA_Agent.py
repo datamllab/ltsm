@@ -17,7 +17,7 @@ from pydantic import BaseModel
 from .custom_messages import TextMessage, TSMessage
 
 @type_subscription(topic_type="Planner-QA") # for receiving task from Planner
-@type_subscription(topic_type="Reward-QA") # for receiving QA Feedback 
+@type_subscription(topic_type="Redo-QA") # for receiving QA Feedback 
 @type_subscription(topic_type="TS-Info")  # for receiving TS info from TS Agent
 class QAAgent(RoutedAgent):
     def __init__(self, name: str, model_client: ChatCompletionClient):
@@ -76,7 +76,7 @@ class QAAgent(RoutedAgent):
         )
         # publish the inference result of QA Agent
         await self.publish_message(
-            TextMessage(source=self.name, content=self._last_llm_response),
+            TextMessage(source=self.name, content=self._last_llm_response, task = self._last_plan), # add task
             TopicId(type="QA-Response", source=self.id.key)  # publish to a specific topic for QA response
         )
 

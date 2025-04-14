@@ -18,7 +18,7 @@ from multi_agents_pipeline.ltsm_inference import inference
 
 
 @type_subscription(topic_type="Planner-TS") # for receiving task from Planner
-@type_subscription(topic_type="Reward-TS") # for receiving TS Feedback
+@type_subscription(topic_type="Redo-TS") # for receiving TS Feedback
 class TSAgent(RoutedAgent):
     def __init__(self, name: str, model_client: Optional[ChatCompletionClient] = None):
         super().__init__(description=f"{name} with LTSM Package support")

@@ -22,6 +22,12 @@ def inference(file: str, task_type: str = "ts-classification") -> str:
     Currently just a minimal working example.
 
     Task: according to different task requirements, select different models, and save inference results.
+
+    Models can be selected:
+    - LTSM : forecasting
+    - DLinear
+    - Informer
+    - PatchTST
     """
     
     #login(token="Hugging Face Token")  # Login to Hugging Face Hub if needed
