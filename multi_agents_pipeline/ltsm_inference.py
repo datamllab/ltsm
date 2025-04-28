@@ -31,9 +31,8 @@ def inference(file: str, task_type: str = "ts-classification") -> str:
     """
     
     #login(token="Hugging Face Token")  # Login to Hugging Face Hub if needed
-    config = LTSMConfig(seq_len=150, pred_len=150, prompt_len=0)
-    #model = get_model(config, "LTSM", local_pretrain=None, hf_hub_model="LSC2204/LTSM-bundle")
-    model = get_model(config, "LTSM", local_pretrain=None, hf_hub_model=None)
+    config = LTSMConfig()
+    model = get_model(config, "LTSM", local_pretrain=None, hf_hub_model="LSC2204/LTSM-bundle")
     
     task_type = task_type
     files = file.split()
@@ -44,20 +43,14 @@ def inference(file: str, task_type: str = "ts-classification") -> str:
     os.makedirs(base_path, exist_ok=True)
     for index, file in enumerate(files):
         df = CSVReader(file).fetch()
-        processor = StandardScaler()
-        input_data, _, _, = processor.process(
-            raw_data=df.to_numpy(), 
-            train_data=[df.to_numpy()], 
-            val_data=[df.to_numpy()], 
-            test_data=[df.to_numpy()], 
-            fit_train_only=True,  # Use the training data for scaling
-            do_anomaly=False
-        )
-        input_data = np.array(input_data[0])
+        input_data = df.to_numpy().transpose()
         if input_data.ndim == 1:
             input_data = input_data.reshape(-1, 1)
         tensor_data = torch.tensor(input_data, dtype=torch.float32)
         tensor_data = tensor_data.unsqueeze(0)
+        tensor_data_length = tensor_data.shape[1]
+        # Pad tensor to match pretrained LTSM input size (336 seq_len + 133 prompt_len)
+        tensor_data = torch.nn.functional.pad(tensor_data, (0, 0, 133+336-tensor_data_length, 0), mode='constant', value=tensor_data[0, tensor_data_length-1, 0])
         with torch.no_grad():
             model.eval()
             output = model(tensor_data)
