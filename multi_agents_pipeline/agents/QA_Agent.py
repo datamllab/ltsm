@@ -40,18 +40,26 @@ class QAAgent(RoutedAgent):
         """This is the TS info given by TS Agent
         """
         df = pd.read_csv(Path(message.filepath))
-        stats = df.describe().to_string()
+        csv_text = df.to_csv(index=False)
+        #stats = df.describe().to_string()
 
         # below is the prompt that combine the task and the TS Info.
         # TODO : Modify according to the task type and task description. Currently just a placeholder
+        task_string = ""
+        if message.task_type == "ts-classification":
+            task_string = f"An expert time-series analyst has provided a description of the time-series data: {message.description}"
+        elif message.task_type == "ts-forecasting":
+            task_string = f"An expert time-series analyst has made a prediction. Here is a statistical analysis of the forecasting result: {message.description}"
         prompt = f"""
             You are a Time Series Expert.
 
             Here is a task given by the planner: 
             {self._last_plan or "(no plan received)"}
 
-            Here is the output of Time-Series Agent:
-            {stats}
+            An expert time-series analyst Here is the forecasting result of the Time-Series Agent:
+            {csv_text}
+
+            {task_string}
 
             Please finish the task based on the above information.
             """
