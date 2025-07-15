@@ -1,74 +1,245 @@
-# Understanding Different Design Choices in Training Large Time Series Models
-<img width="700" height="290" src="./imgs/ltsm_model.png">
+# LTSM-Bundle: A Toolbox and Benchmark on Large Language Models for Time Series Forecasting
+
+<div align="center">
+<img src="./imgs/ltsm_model.png" width="700" height="290" alt="LTSM Model">
+</div>
 
 [![Test](https://github.com/daochenzha/ltsm/actions/workflows/test.yml/badge.svg)](https://github.com/daochenzha/ltsm/actions/workflows/test.yml)
 
-This work investigates the transition from traditional Time Series Forecasting (TSF) to Large Time Series Models (LTSMs), leveraging universal transformer-based models. Training LTSMs on diverse time series data introduces challenges due to varying frequencies, dimensions, and patterns. We explore various design choices for LTSMs, including pre-processing, model configurations, and dataset setups. We introduce **Time Series Prompt**, a statistical prompting strategy, and $\texttt{LTSM-bundle}$, which encapsulates the most effective design practices identified. $\texttt{LTSM-bundle}$ is developed by [Data Lab at Rice University](https://cs.rice.edu/~xh37/).
+> Empowering forecasts with precision and efficiency.
 
-## Resources
-:star2: Please star our repo to follow the latest updates on LTSM-bundle!
+## Table of Contents
 
-:mega: We have released our [paper](https://arxiv.org/abs/2406.14045) and source code of LTSM-bundle-v1.0!
+* [Overview](#overview)
+* [Why LTSM-bundle](#why-ltsm-bundle)
+* [Features](#features)
+* [Installation](#installation)
+* [Quick Start](#quick-start)
+* [Project Structure](#project-structure)
+* [Datasets and Prompts](#datasets-and-prompts)
+* [Model Access](#model-access)
+* [Cite This Work](#cite-this-work)
+* [License](#license)
+* [Acknowledgments](#acknowledgments)
 
-:books: Follow our latest [English Tutorial](https://github.com/daochenzha/ltsm/tree/main/tutorial) or [中文教程](https://zhuanlan.zhihu.com/p/708804309) to costomize your LTSM!
+---
 
-:earth_americas: For more information, please visit: 
-* Paper: [https://arxiv.org/abs/2406.14045](https://arxiv.org/abs/2406.14045)
-* Blog: [Time Series Are Not That Different for LLMs](https://towardsdatascience.com/time-series-are-not-that-different-for-llms-56435dc7d2b1)
-* Tutorial: [Build your own LTSM-bundle](https://github.com/daochenzha/ltsm/tree/main/tutorial)
-* Chinese Tutorial: [https://zhuanlan.zhihu.com/p/708804309](https://zhuanlan.zhihu.com/p/708804309)
-* Do you want to learn more about data pipeline search? Please check out our [data-centric AI survey](https://arxiv.org/abs/2303.10158) and [data-centric AI resources](https://github.com/daochenzha/data-centric-AI) !
+## Overview
+
+This work investigates the transition from traditional Time Series Forecasting (TSF) to Large Time Series Models (LTSMs), leveraging large transformer-based models like GPT. Training LTSMs on diverse time series data introduces challenges due to varying frequencies, dimensions, and patterns.
+
+We explore multiple design choices, including pre-processing strategies, tokenization, model architectures, and dataset setups. We introduce:
+
+* **Time Series Prompt**: A statistical prompting strategy
+* **LTSM-bundle**: A toolkit encapsulating effective design practices
+
+The project is developed by the [Data Lab at Rice University](https://cs.rice.edu/~xh37/).
+
+---
 
 ## Why LTSM-bundle?
-The LTSM-bundle package leverages the HuggingFace transformers toolkit, offering flexibility to switch between different advanced language models as the backbone. It is easy to tailor the general LTSMs to their specific time series forecasting needs by selecting the most suitable language model from a wide array of options. The flexibility enhances the adaptability of the package across different industries and data types, ensuring optimal performance in diverse scenarios.
+
+The LTSM-bundle leverages HuggingFace transformers, allowing flexible integration of large-scale pre-trained language models for time series tasks. Users can customize the pipeline to fit specific forecasting needs with minimal overhead, making it adaptable across various domains and industries.
+
+Key highlights:
+
+* Plug-and-play with GPT-style backbones
+* Modular pipeline for easy experimentation
+* Support for statistical and text prompts
+
+---
+
+## Features
+
+| Category          | Highlights                                                                                                                          |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| ⚙ï¸ Architecture | Modular design, GPT-style transformers for time series                                                                              |
+| 📝 Prompting      | Time Series Prompt & Text Prompt support                                                                                            |
+| ⚡️ Performance    | GPU acceleration, optimized pipelines                                                                                               |
+| 🔧 Integrations   | LoRA support, JSON/CSV-based dataset and prompt interfaces                                                                          |
+| 🔬 Testing        | Unit and integration tests, GitHub Actions CI                                                                                       |
+| 📊 Data           | Built-in data loaders, scalers, and tokenizers                                                                                      |
+| 📂 Documentation  | Tutorials in [English](https://github.com/daochenzha/ltsm/tree/main/tutorial) and [Chinese](https://zhuanlan.zhihu.com/p/708804309) |
+
+---
 
 ## Installation
-```
+
+We recommend using Conda:
+
+```bash
 conda create -n ltsm python=3.8.0
 conda activate ltsm
-git clone git@github.com:daochenzha/ltsm.git
+```
+
+Then install the package:
+
+```bash
+git clone https://github.com/datamllab/ltsm.git
 cd ltsm
-pip3 install -e .
-pip3 install -r requirements.txt
+pip install -e .
+pip install -r requirements.txt
 ```
 
-## Quick Exploration on LTSM-bundle 
+---
 
-Training on **[Time Series Prompt]** and **[Linear Tokenization]**
-```bash
-bash scripts/train_ltsm_csv.sh
+## 🔧 Training Examples
+<!-- Joshua please helps this part -->
+```Python
 ```
 
-Training on **[Text Prompt]** and **[Linear Tokenization]**
-```bash
-bash scripts/train_ltsm_textprompt_csv.sh
+
+## 🔍 Inference Examples
+
+```Python
+import os
+import torch
+import pandas as pd
+from huggingface_hub import hf_hub_download
+from safetensors.torch import load_file
+from ltsm.models import LTSMConfig, ltsm_model
+
+# Download model config and weights from Hugging Face
+config_path  = hf_hub_download("LSC2204/LTSM-bundle", "config.json")
+weights_path = hf_hub_download("LSC2204/LTSM-bundle", "model.safetensors")
+
+# Load model and weights
+model_config = LTSMConfig()
+model_config.load(config_path)
+model = ltsm_model.LTSM(model_config)
+
+state_dict = load_file(weights_path)
+model.load_state_dict(state_dict)
+
+# Move model to device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = model.to(device).eval()
+
+# Load your dataset (e.g., weather)
+df_weather = pd.read_csv("/path/to/dataset.csv")
+print("Loaded data shape:", df_weather.shape)
+
+# Load prompts per feature
+feature_prompts = {}
+prompt_dir = "/path/to/prompts/"
+for feature, filename in {
+    "T (degC)": "weather_T (degC)_prompt.pth.tar",
+    "rain (mm)": "weather_rain (mm)_prompt.pth.tar"
+}.items():
+    prompt_tensor = torch.load(os.path.join(prompt_dir, filename))
+    feature_prompts[feature] = prompt_tensor.squeeze(0).float().to(device)
+
+# Predict (custom code here depending on your model usage)
+# For example:
+with torch.no_grad():
+    inputs = feature_prompts["T (degC)"].unsqueeze(0)
+    preds = model(inputs)
+    print("Prediction output shape:", preds.shape)
 ```
 
-Training on **[Time Series Prompt]** and **[Time Series Tokenization]**
-```bash
-bash scripts/train_ltsm_tokenizer_csv.sh
+---
+
+## Project Structure
+
+```text
+└── ltsm-package/
+    ├── datasets
+    │   └── README.md
+    ├── imgs
+    │   ├── ltsm_model.png
+    │   ├── prompt_csv_tsne.png
+    │   └── stat_prompt.png
+    ├── ltsm
+    │   ├── common                  # Base classes 
+    │   ├── data_pipeline           # Model lifecycle management and training pipeline
+    │   ├── data_provider           # Dataset construction
+    │   ├── data_reader             # Read input data from various formats (CSV, JSON, etc.)
+    │   ├── evaluate_pipeline       # Evaluation workflow for model performance
+    │   ├── layers                  # Custom neural network components
+    │   ├── models                  # Implementations: LTSM, DLinear, Informer, PatchTST
+    │   ├── prompt_reader           # Prompt generation and formatting
+    │   ├── sk_interface            # Scikit-learn style interface
+    │   └── utils                   # Shared helper functions
+    ├── multi_agents_pipeline       # Multi-agent time series reasoning framework
+    │   ├── Readme.md
+    │   ├── agents                  # Agent definitions: Planner, QA, TS, Reward
+    │   ├── llm-server.py           # Local LLM server interface
+    │   ├── ltsm_inference.py       # Inference script using LTSM pipeline
+    │   ├── main.py                 # Pipeline entry point
+    │   └── model_config.yaml       # Configuration file for models and agents
+    ├── requirements.txt
+    ├── setup.py
+    ├── tests                       # Unit tests for LTSM modules
+    │   ├── common
+    │   ├── data_pipeline
+    │   ├── data_provider
+    │   ├── data_reader
+    │   ├── evaluate_pipeline
+    │   ├── models
+    │   └── test_scripts
+    └── tutorial
+        └── README.md
 ```
 
-## Datasets and Time Series Prompts
-Download the datasets
+---
+
+## Datasets and Prompts
+
+Download datasets:
+
 ```bash
 cd datasets
-download: https://drive.google.com/drive/folders/1hLFbz0FRxdiDCzgFYtKCOPJYSBVvwW9P
+# Google Drive link:
+https://drive.google.com/drive/folders/1hLFbz0FRxdiDCzgFYtKCOPJYSBVvwW9P
 ```
 
-Download the time series prompts 
+Download time series prompts:
+
 ```bash
-cd prompt_bank/propmt_data_csv
-download: https://drive.google.com/drive/folders/1hLFbz0FRxdiDCzgFYtKCOPJYSBVvwW9P
+cd prompt_bank/prompt_data_csv
+# Same Google Drive link applies
 ```
+
+---
+
+## Model Access
+
+You can find our trained LTSM models on Hugging Face:
+
+➡️ [https://huggingface.co/LSC2204/LTSM-bundle](https://huggingface.co/LSC2204/LTSM-bundle)
+
+---
 
 ## Cite This Work
-If you find this work useful, you may cite this work:
-```
-@article{ltsm-bundle,
-  title={Understanding Different Design Choices in Training Large Time Series Models},
-  author={Chuang*, Yu-Neng and Li*, Songchen and Yuan*, Jiayi and Wang*, Guanchu and Lai*, Kwei-Herng and Yu, Leisheng and Ding, Sirui and Chang, Chia-Yuan and Tan, Qiaoyu and Zha, Daochen and Hu, Xia},
-  journal={arXiv preprint arXiv:2406.14045},
-  year={2024}
+
+If you find this work useful, please cite:
+
+```bibtex
+@misc{chuang2025ltsmbundletoolboxbenchmarklarge,
+      title={LTSM-Bundle: A Toolbox and Benchmark on Large Language Models for Time Series Forecasting},
+      author={Yu-Neng Chuang and Songchen Li and Jiayi Yuan and Guanchu Wang and Kwei-Herng Lai and Songyuan Sui and Leisheng Yu and Sirui Ding and Chia-Yuan Chang and Qiaoyu Tan and Daochen Zha and Xia Hu},
+      year={2025},
+      eprint={2406.14045},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2406.14045},
 }
 ```
+
+---
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](https://choosealicense.com/licenses/mit/) file for details.
+
+---
+
+## Acknowledgments
+
+We thank all contributors and collaborators involved in the LTSM project. Special thanks to the Data Lab at Rice University and the open-source community for enabling fast prototyping and reproducible research.
+
+---
+
+<div align="right">
+    <a href="#top">⬆️ Back to Top</a>
+</div>
