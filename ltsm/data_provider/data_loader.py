@@ -12,9 +12,68 @@ from torch.utils.data.dataset import ConcatDataset, Dataset
 from ltsm.utils.timefeatures import time_features
 from ltsm.utils.tools import convert_tsf_to_dataframe
 
+from typing import Dict
+
 warnings.filterwarnings('ignore')
 
 class HF_Dataset(Dataset):
+    """
+    Custom dataset class that wraps a PyTorch 'Dataset' class to extract the input and output sequences.
+
+    Attributes:
+        dataset (Dataset): The underlying Dataset object.
+    """
+    def __init__(self, dataset):
+        """
+        Initializes the HF_Dataset with the underlying dataset.
+
+        Args:
+            dataset (Dataset): The underlying Dataset object.
+        """
+        super().__init__()
+        self.dataset = dataset
+
+    def __read_data__(self):
+        """
+        Read 
+        """
+        return self.dataset.__read_data__()
+
+    def __len__(self) -> int:
+        """
+        Returns the total number of samples in the dataset.
+
+        Returns:
+            int: The number of samples in the dataset.
+        """
+        return self.dataset.__len__()
+
+    def inverse_transform(self, data):
+        return self.dataset.inverse_transform(data)
+
+    def add_data(self, df):
+        return self.dataset.add_data(df)
+
+    def __getitem__(self, index: int) -> Dict[str, torch.Tensor]: 
+        """
+        Retrieves a single input sequence and label from the dataset.
+
+        Args:
+            index (int): Index of data point.
+
+        Returns:
+            Dict[str, torch.Tensor]: Dictionary containing the input data and labels as torch Tensors objects.
+        """
+        outputs = self.dataset.__getitem__(index)
+        seq_x = outputs[0]
+        seq_y = outputs[1]
+
+        return {
+            "input_data": seq_x,
+            "labels": seq_y
+        }
+    
+class HF_Timestamp_Dataset(Dataset):
     def __init__(self, dataset):
         super().__init__()
         self.dataset = dataset
@@ -31,13 +90,14 @@ class HF_Dataset(Dataset):
     def add_data(self, df):
         return self.dataset.add_data(df)
 
-    def __getitem__(self, index):
-
-        seq_x, seq_y = self.dataset.__getitem__(index)
+    def __getitem__(self, index): 
+        seq_x, seq_y, seq_x_mark, seq_y_mark = self.dataset.__getitem__(index)
 
         return {
             "input_data": seq_x,
-            "labels": seq_y
+            "labels": seq_y,
+            "timestamp_input": seq_x_mark,
+            "timestamp_labels": seq_y_mark
         }
 
 class Dataset_ETT_hour(Dataset):
@@ -131,8 +191,13 @@ class Dataset_ETT_hour(Dataset):
         s_end = s_begin + self.seq_len
         r_begin = s_end
         r_end = r_begin + self.pred_len
-        seq_x = self.data_x[s_begin:s_end, feat_id:feat_id+1]
-        seq_y = self.data_y[r_begin:r_end, feat_id:feat_id+1]
+        if self.enc_in > 1:
+            seq_x = self.data_x[s_begin:s_end]
+            seq_y = self.data_y[r_begin:r_end]
+        else:
+            seq_x = self.data_x[s_begin:s_end, feat_id:feat_id+1]
+            seq_y = self.data_y[r_begin:r_end, feat_id:feat_id+1]
+            
         seq_x_mark = self.data_stamp[s_begin:s_end]
         seq_y_mark = self.data_stamp[r_begin:r_end]
 
@@ -233,8 +298,13 @@ class Dataset_ETT_minute(Dataset):
         s_end = s_begin + self.seq_len
         r_begin = s_end
         r_end = r_begin + self.pred_len
-        seq_x = self.data_x[s_begin:s_end, feat_id:feat_id+1]
-        seq_y = self.data_y[r_begin:r_end, feat_id:feat_id+1]
+        if self.enc_in > 1:
+            seq_x = self.data_x[s_begin:s_end]
+            seq_y = self.data_y[r_begin:r_end]
+        else:
+            seq_x = self.data_x[s_begin:s_end, feat_id:feat_id+1]
+            seq_y = self.data_y[r_begin:r_end, feat_id:feat_id+1]
+            
         seq_x_mark = self.data_stamp[s_begin:s_end]
         seq_y_mark = self.data_stamp[r_begin:r_end]
 
@@ -345,8 +415,14 @@ class Dataset_Custom(Dataset):
         s_end = s_begin + self.seq_len
         r_begin = s_end
         r_end = r_begin + self.pred_len
-        seq_x = self.data_x[s_begin:s_end, feat_id:feat_id+1]
-        seq_y = self.data_y[r_begin:r_end, feat_id:feat_id+1]
+
+        if self.enc_in > 1:
+            seq_x = self.data_x[s_begin:s_end]
+            seq_y = self.data_y[r_begin:r_end]
+        else:
+            seq_x = self.data_x[s_begin:s_end, feat_id:feat_id+1]
+            seq_y = self.data_y[r_begin:r_end, feat_id:feat_id+1]
+
         seq_x_mark = self.data_stamp[s_begin:s_end]
         seq_y_mark = self.data_stamp[r_begin:r_end]
 
@@ -358,7 +434,6 @@ class Dataset_Custom(Dataset):
     def inverse_transform(self, data):
         return self.scaler.inverse_transform(data)
     
-
 class Dataset_Pred(Dataset):
     def __init__(
         self,
@@ -471,7 +546,6 @@ class Dataset_Pred(Dataset):
     def inverse_transform(self, data):
         return self.scaler.inverse_transform(data)
 
-
 class Dataset_TSF(Dataset):
     def __init__(self,
         data_path,
@@ -566,7 +640,6 @@ class Dataset_TSF(Dataset):
     def __len__(self):
         return self.tot_len
 
-
 class Dataset_Custom_List(Dataset):
     def __init__(
         self,
@@ -644,7 +717,6 @@ class Dataset_Custom_List(Dataset):
     def inverse_transform(self, data):
         return self.scaler.inverse_transform(data)
     
-
 class Dataset_Custom_List_TS(Dataset):
     def __init__(
         self,
