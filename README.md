@@ -84,10 +84,32 @@ pip install -r requirements.txt
 ---
 
 ## 🔧 Training Examples
-<!-- Joshua please helps this part -->
 ```Python
-```
+from ltsm.data_pipeline import StatisticalTrainingPipeline, get_args, seed_all
+from ltsm.models.base_config import LTSMConfig
+from ltsm.common.base_training_pipeline import TrainingConfig
 
+# Option 1: Load config via command-line arguments
+config = get_args()
+
+# Option 2: Load config from a JSON file
+config = TrainingConfig.load("example.json")
+
+# Option 3: Manually customize a supported model config in code
+# (e.g., LTSMConfig, DLinearConfig, InformerConfig, etc.)
+config = LTSMConfig(seq_len=336, pred_len=96)
+
+# Set random seeds for reproducibility
+seed = config.train_params["seed"]
+seed_all(seed)
+
+# Initialize the training pipeline with the loaded config
+pipeline = StatisticalTrainingPipeline(config)
+
+# Run the training and evaluation process
+pipeline.run()
+```
+---
 
 ## 🔍 Inference Examples
 
