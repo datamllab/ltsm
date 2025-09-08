@@ -14,7 +14,6 @@
 * [Why LTSM-bundle](#why-ltsm-bundle)
 * [Features](#features)
 * [Installation](#installation)
-* [Quick Start](#quick-start)
 * [Project Structure](#project-structure)
 * [Datasets and Prompts](#datasets-and-prompts)
 * [Model Access](#model-access)
@@ -59,7 +58,7 @@ Key highlights:
 | 🔧 Integrations   | LoRA support, JSON/CSV-based dataset and prompt interfaces                                                                          |
 | 🔬 Testing        | Unit and integration tests, GitHub Actions CI                                                                                       |
 | 📊 Data           | Built-in data loaders, scalers, and tokenizers                                                                                      |
-| 📂 Documentation  | The documents are in [English]([https://github.com/daochenzha/ltsm/tree/main/tutorial](https://ltsm-doc.github.io)) and [Chinese](https://zhuanlan.zhihu.com/p/708804309) |
+| 📂 Documentation  | The documents are in [English](https://ltsm-doc.github.io) and [Chinese](https://zhuanlan.zhihu.com/p/708804309)                    |
 
 ---
 
